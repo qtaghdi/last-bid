@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
+[ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
+
+[sub_resource type="Resource" id="Effect_rule"]
+script = ExtResource("2_effect")
+trigger = 0
+effect_type = 7
+target_selector = 3
+amount = 150
+global_rule = &"next_round_min_increment"
+duration_rounds = 1
+consume_after_trigger = true
+description = "다음 라운드 최소 인상액 150골드"
+
+[resource]
+script = ExtResource("1_def")
+id = &"price_surge"
+display_name = "가격 폭주"
+description = "다음 라운드 최소 인상액을 150골드로 변경. 해당 라운드 후 복구."
+public_label = "표식이 있는 호가표"
+public_role_group = "규칙"
+public_risk_range = "중간"
+public_value_range = "중간"
+public_trigger_timing = "지연"
+public_target_type = "경매 전체"
+category = &"global"
+base_value = 450
+starting_bid = 150
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_rule")])

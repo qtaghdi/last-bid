@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
+[ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
+
+[sub_resource type="Resource" id="Effect_guard"]
+script = ExtResource("2_effect")
+trigger = 3
+effect_type = 8
+target_selector = 3
+consume_after_trigger = true
+description = "다음 치명 피해를 1회 무효화하고 제거"
+
+[resource]
+script = ExtResource("1_def")
+id = &"broken_chalice"
+display_name = "깨진 성배"
+description = "소유자가 다음 치명 피해를 받을 때 1회 무효. 발동 후 제거."
+public_label = "미확인 의식 물품"
+public_role_group = "보호"
+public_risk_range = "낮음"
+public_value_range = "중간"
+public_trigger_timing = "조건부"
+public_target_type = "소유자"
+category = &"protection"
+base_value = 650
+starting_bid = 250
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_guard")])

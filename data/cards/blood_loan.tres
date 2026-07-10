@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
+[ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
+
+[sub_resource type="Resource" id="Effect_advance"]
+script = ExtResource("2_effect")
+trigger = 0
+effect_type = 1
+target_selector = 3
+amount = 500
+description = "낙찰 즉시 골드 +500"
+
+[sub_resource type="Resource" id="Effect_repayment"]
+script = ExtResource("2_effect")
+trigger = 2
+effect_type = 2
+target_selector = 3
+amount = -700
+delay_rounds = 2
+nested_effect_type = 1
+overflow_hp_per_gold = 200
+description = "2라운드 후 700골드 차감, 부족한 200골드마다 체력 1 피해"
+
+[resource]
+script = ExtResource("1_def")
+id = &"blood_loan"
+display_name = "피의 대출"
+description = "즉시 +500골드. 2라운드 후 700골드 상환, 부족액은 체력으로 지불."
+public_label = "미확인 금융 계약서"
+public_role_group = "자금"
+public_risk_range = "중간~높음"
+public_value_range = "높음"
+public_trigger_timing = "즉시·지연"
+public_target_type = "소유자"
+category = &"contract"
+base_value = 550
+starting_bid = 200
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_advance"), SubResource("Effect_repayment")])

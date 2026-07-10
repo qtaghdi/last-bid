@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
+[ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
+
+[sub_resource type="Resource" id="Effect_judgment"]
+script = ExtResource("2_effect")
+trigger = 1
+effect_type = 0
+target_selector = 4
+amount = -2
+consume_after_trigger = true
+description = "다음 JUDGMENT에 가장 부유한 참가자 전원 체력 2 피해"
+
+[resource]
+script = ExtResource("1_def")
+id = &"golden_gallows"
+display_name = "황금 교수대"
+description = "다음 심판에 가장 부유한 참가자 전원 체력 2 피해. 발동 후 제거."
+public_label = "금빛 장식 물품"
+public_role_group = "공격"
+public_risk_range = "높음"
+public_value_range = "중간~높음"
+public_trigger_timing = "심판"
+public_target_type = "재산 기준 다수"
+category = &"judgment"
+base_value = 700
+starting_bid = 300
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_judgment")])

@@ -1,0 +1,335 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/main_ui.gd" id="1_ui"]
+[ext_resource type="Script" path="res://scripts/core/game_flow_controller.gd" id="2_controller"]
+[ext_resource type="Texture2D" path="res://public/main-title.png" id="3_background"]
+[ext_resource type="Texture2D" path="res://public/last_bid_wordmark_extracted.png" id="4_wordmark"]
+
+[sub_resource type="StyleBoxFlat" id="Panel_dark"]
+bg_color = Color(0.055, 0.047, 0.042, 0.94)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.39, 0.31, 0.19, 0.8)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+content_margin_left = 18.0
+content_margin_top = 16.0
+content_margin_right = 18.0
+content_margin_bottom = 16.0
+
+[sub_resource type="StyleBoxFlat" id="Button_gold"]
+bg_color = Color(0.34, 0.23, 0.1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.78, 0.62, 0.31, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="Result_panel"]
+bg_color = Color(0.025, 0.022, 0.02, 0.97)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.72, 0.54, 0.25, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.84, 0.8, 0.7, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 16
+script = ExtResource("1_ui")
+
+[node name="Backdrop" type="TextureRect" parent="."]
+modulate = Color(1, 1, 1, 0.14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_background")
+expand_mode = 1
+stretch_mode = 6
+mouse_filter = 2
+
+[node name="Shade" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.018, 0.016, 0.014, 0.74)
+mouse_filter = 2
+
+[node name="GameFlowController" type="Node" parent="."]
+script = ExtResource("2_controller")
+
+[node name="PageMargin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 16.0
+offset_right = -24.0
+offset_bottom = -18.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Page" type="VBoxContainer" parent="PageMargin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="PageMargin/Page"]
+custom_minimum_size = Vector2(0, 62)
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Wordmark" type="TextureRect" parent="PageMargin/Page/Header"]
+custom_minimum_size = Vector2(260, 58)
+layout_mode = 2
+texture = ExtResource("4_wordmark")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeaderSpacer" type="Control" parent="PageMargin/Page/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RoundLabel" type="Label" parent="PageMargin/Page/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.7, 0.39, 1)
+theme_override_font_sizes/font_size = 20
+text = "ROUND  01 / 10"
+vertical_alignment = 1
+
+[node name="PhaseLabel" type="Label" parent="PageMargin/Page/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(138, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.74, 0.69, 0.58, 1)
+theme_override_font_sizes/font_size = 18
+text = "PRE_INFO"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SeedBox" type="HBoxContainer" parent="PageMargin/Page/Header"]
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="SeedTitle" type="Label" parent="PageMargin/Page/Header/SeedBox"]
+layout_mode = 2
+text = "SEED"
+
+[node name="SeedInput" type="LineEdit" parent="PageMargin/Page/Header/SeedBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(112, 36)
+layout_mode = 2
+alignment = 2
+max_length = 18
+placeholder_text = "20260710"
+
+[node name="NewRunButton" type="Button" parent="PageMargin/Page/Header/SeedBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(92, 36)
+layout_mode = 2
+text = "새 게임"
+
+[node name="DebugToggle" type="CheckButton" parent="PageMargin/Page/Header/SeedBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(92, 36)
+layout_mode = 2
+text = "DEBUG"
+
+[node name="Rule" type="HSeparator" parent="PageMargin/Page"]
+layout_mode = 2
+theme_override_colors/separator = Color(0.53, 0.41, 0.22, 0.8)
+
+[node name="GameColumns" type="HBoxContainer" parent="PageMargin/Page"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="ActorsPanel" type="PanelContainer" parent="PageMargin/Page/GameColumns"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("Panel_dark")
+
+[node name="ActorsVBox" type="VBoxContainer" parent="PageMargin/Page/GameColumns/ActorsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ActorsTitle" type="Label" parent="PageMargin/Page/GameColumns/ActorsPanel/ActorsVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.73, 0.57, 0.31, 1)
+theme_override_font_sizes/font_size = 14
+text = "BIDDERS"
+
+[node name="ActorsLabel" type="RichTextLabel" parent="PageMargin/Page/GameColumns/ActorsPanel/ActorsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+fit_content = false
+scroll_active = false
+
+[node name="CardPanel" type="PanelContainer" parent="PageMargin/Page/GameColumns"]
+custom_minimum_size = Vector2(370, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/panel = SubResource("Panel_dark")
+
+[node name="CardVBox" type="VBoxContainer" parent="PageMargin/Page/GameColumns/CardPanel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="LotTitle" type="Label" parent="PageMargin/Page/GameColumns/CardPanel/CardVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.73, 0.57, 0.31, 1)
+theme_override_font_sizes/font_size = 14
+text = "CURRENT LOT"
+horizontal_alignment = 1
+
+[node name="CardNameLabel" type="Label" parent="PageMargin/Page/GameColumns/CardPanel/CardVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.78, 0.53, 1)
+theme_override_font_sizes/font_size = 28
+text = "저주받은 금고"
+horizontal_alignment = 1
+
+[node name="CardDescriptionLabel" type="Label" parent="PageMargin/Page/GameColumns/CardPanel/CardVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.76, 0.73, 0.66, 1)
+text = "카드 설명"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="CardRule" type="HSeparator" parent="PageMargin/Page/GameColumns/CardPanel/CardVBox"]
+layout_mode = 2
+
+[node name="BidInfoLabel" type="Label" parent="PageMargin/Page/GameColumns/CardPanel/CardVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 19
+text = "시작가  200 G\n현재가  입찰 없음\n최고 입찰자  없음\n최소 인상  50 G"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TurnLabel" type="Label" parent="PageMargin/Page/GameColumns/CardPanel/CardVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.67, 0.39, 1)
+text = "출품 정보를 확인하세요."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="DebugPanel" type="PanelContainer" parent="PageMargin/Page/GameColumns"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(330, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("Panel_dark")
+
+[node name="DebugVBox" type="VBoxContainer" parent="PageMargin/Page/GameColumns/DebugPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DebugTitle" type="Label" parent="PageMargin/Page/GameColumns/DebugPanel/DebugVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.73, 0.57, 0.31, 1)
+theme_override_font_sizes/font_size = 14
+text = "DEBUG LOG"
+
+[node name="DebugLog" type="RichTextLabel" parent="PageMargin/Page/GameColumns/DebugPanel/DebugVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/default_color = Color(0.68, 0.66, 0.61, 1)
+theme_override_font_sizes/normal_font_size = 13
+text = "게임 로그"
+scroll_following = true
+
+[node name="Actions" type="HBoxContainer" parent="PageMargin/Page"]
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="BidButton" type="Button" parent="PageMargin/Page/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 48)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.86, 0.64, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("Button_gold")
+text = "첫 입찰 200 G"
+
+[node name="PassButton" type="Button" parent="PageMargin/Page/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "패스"
+
+[node name="AdvanceButton" type="Button" parent="PageMargin/Page/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "경매 시작"
+
+[node name="ResultPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -230.0
+offset_top = -100.0
+offset_right = 230.0
+offset_bottom = 100.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("Result_panel")
+
+[node name="ResultLabel" type="Label" parent="ResultPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "승리\n10라운드 생존"
+horizontal_alignment = 1
+vertical_alignment = 1

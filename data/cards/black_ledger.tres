@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
+[ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
+
+[sub_resource type="Resource" id="Effect_rich"]
+script = ExtResource("2_effect")
+trigger = 1
+effect_type = 1
+target_selector = 4
+amount = 80
+description = "가장 부유한 참가자 전원 골드 +80"
+
+[sub_resource type="Resource" id="Effect_poor"]
+script = ExtResource("2_effect")
+trigger = 1
+effect_type = 0
+target_selector = 5
+amount = -1
+description = "가장 가난한 참가자 전원 체력 1 피해"
+
+[resource]
+script = ExtResource("1_def")
+id = &"black_ledger"
+display_name = "검은 장부"
+description = "매 심판마다 부자 전원 +80골드, 빈자 전원 체력 1 피해."
+public_label = "봉인된 거래 기록물"
+public_role_group = "심판"
+public_risk_range = "중간"
+public_value_range = "중간"
+public_trigger_timing = "반복"
+public_target_type = "재산 기준 다수"
+category = &"judgment"
+base_value = 600
+starting_bid = 250
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_rich"), SubResource("Effect_poor")])
