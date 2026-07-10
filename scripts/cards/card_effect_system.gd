@@ -30,7 +30,7 @@ func acquire_card(
 	)
 	owner.inventory.append(instance)
 	_events.card_acquired.emit(owner.actor_id, definition.id)
-	_events.log_debug("%s이(가) %s 카드를 획득했습니다." % [owner.display_name, definition.display_name])
+	_events.log_debug("%s이(가) %s 카드를 획득했습니다." % [owner.display_name, definition.actual_name])
 	var snapshot: Dictionary = _make_snapshot(actors)
 	for index: int in range(definition.effects.size()):
 		var effect: CardEffectDefinition = definition.effects[index]
@@ -102,7 +102,7 @@ func _process_effect(
 		instance.delay_counters[effect_index] = remaining
 		instance.remaining_turns = _largest_remaining_delay(instance)
 		if remaining > 0:
-			_events.log_debug("%s 지연 효과: %d라운드 남음" % [definition.display_name, remaining])
+			_events.log_debug("%s 지연 효과: %d라운드 남음" % [definition.actual_name, remaining])
 			return
 		instance.resolved_effects[effect_index] = true
 		effective_type = effect.nested_effect_type
@@ -111,6 +111,7 @@ func _process_effect(
 	var target_ids: Array[StringName] = []
 	for target: ActorState in targets:
 		target_ids.append(target.actor_id)
+	_events.card_effect_triggered.emit(definition.id, effect.effect_type, target_ids)
 
 	match effective_type:
 		GameConstants.EffectType.MODIFY_HP:
@@ -128,14 +129,15 @@ func _process_effect(
 			_apply_global_rule(effect)
 		GameConstants.EffectType.CONSUME_CARD:
 			instance.consumed = true
+			_events.card_consumed.emit(definition.id, owner.actor_id)
 		_:
 			_events.log_debug("지원되지 않는 효과 실행 요청: %d" % effective_type)
 
-	_events.card_effect_triggered.emit(definition.id, effect.effect_type, target_ids)
-	_events.log_debug("카드 효과: %s — %s" % [definition.display_name, effect.description])
+	_events.log_debug("카드 효과: %s — %s" % [definition.actual_name, effect.description])
 	if effect.consume_after_trigger:
 		instance.consumed = true
-		_events.log_debug("%s 카드가 소모되었습니다." % definition.display_name)
+		_events.card_consumed.emit(definition.id, owner.actor_id)
+		_events.log_debug("%s 카드가 소모되었습니다." % definition.actual_name)
 
 func _apply_gold_effect(
 	target: ActorState,
@@ -147,7 +149,7 @@ func _apply_gold_effect(
 	var previous_gold: int = target.gold
 	target.gold = maxi(0, target.gold + effect.amount)
 	var delta: int = target.gold - previous_gold
-	_events.gold_changed.emit(target.actor_id, delta, target.gold)
+	_events.gold_changed.emit(target.actor_id, delta, target.gold, source_card_id)
 	_events.log_debug("%s 골드 %+d (%d)" % [target.display_name, delta, target.gold])
 	if effect.amount < 0 and effect.overflow_hp_per_gold > 0:
 		var shortage: int = maxi(0, absi(effect.amount) - previous_gold)
@@ -176,9 +178,10 @@ func _consume_lethal_guard(target: ActorState) -> bool:
 				and effect.effect_type == GameConstants.EffectType.CONSUME_CARD
 			):
 				instance.consumed = true
+				_events.card_consumed.emit(definition.id, target.actor_id)
 				var targets: Array[StringName] = [target.actor_id]
 				_events.card_effect_triggered.emit(definition.id, effect.effect_type, targets)
-				_events.log_debug("%s 발동 후 소모" % definition.display_name)
+				_events.log_debug("%s 발동 후 소모" % definition.actual_name)
 				return true
 	return false
 

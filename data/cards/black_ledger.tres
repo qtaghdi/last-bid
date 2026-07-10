@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="CardDefinition" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
 [ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
+[ext_resource type="Script" path="res://scripts/cards/card_clue_definition.gd" id="3_clue"]
 
 [sub_resource type="Resource" id="Effect_rich"]
 script = ExtResource("2_effect")
@@ -19,18 +20,93 @@ target_selector = 5
 amount = -1
 description = "가장 가난한 참가자 전원 체력 1 피해"
 
+[sub_resource type="Resource" id="Clue_role"]
+script = ExtResource("3_clue")
+clue_id = &"ledger_role"
+clue_type = &"role"
+display_text = "소유"
+related_tags = PackedStringArray("ownership", "economy")
+estimated_reward = 420
+estimated_risk_cost = 150
+
+[sub_resource type="Resource" id="Clue_risk"]
+script = ExtResource("3_clue")
+clue_id = &"ledger_risk"
+clue_type = &"risk"
+display_text = "중간"
+related_tags = PackedStringArray("judgment", "poor")
+estimated_reward = 390
+estimated_risk_cost = 180
+
+[sub_resource type="Resource" id="Clue_value"]
+script = ExtResource("3_clue")
+clue_id = &"ledger_value"
+clue_type = &"value"
+display_text = "중간"
+related_tags = PackedStringArray("economy", "income")
+estimated_reward = 470
+estimated_risk_cost = 160
+
+[sub_resource type="Resource" id="Clue_timing"]
+script = ExtResource("3_clue")
+clue_id = &"ledger_timing"
+clue_type = &"timing"
+display_text = "심판"
+related_tags = PackedStringArray("judgment")
+estimated_reward = 430
+estimated_risk_cost = 170
+
+[sub_resource type="Resource" id="Clue_target"]
+script = ExtResource("3_clue")
+clue_id = &"ledger_target"
+clue_type = &"target"
+display_text = "자산 기준"
+related_tags = PackedStringArray("rich", "poor")
+estimated_reward = 410
+estimated_risk_cost = 190
+
+[sub_resource type="Resource" id="Clue_hidden_split"]
+script = ExtResource("3_clue")
+clue_id = &"ledger_hidden_split"
+clue_type = &"trait"
+display_text = "가장 부유한 참가자와 가장 가난한 참가자에게 서로 다른 결과가 발생한다"
+related_tags = PackedStringArray("rich", "poor", "judgment")
+estimated_reward = 500
+estimated_risk_cost = 220
+
+[sub_resource type="Resource" id="Clue_hidden_owner"]
+script = ExtResource("3_clue")
+clue_id = &"ledger_hidden_owner"
+clue_type = &"trait"
+display_text = "소유자에게만 유리한 물건은 아니다"
+related_tags = PackedStringArray("ownership", "high_variance")
+estimated_reward = 410
+estimated_risk_cost = 240
+
+[sub_resource type="Resource" id="Clue_hidden_ties"]
+script = ExtResource("3_clue")
+clue_id = &"ledger_hidden_ties"
+clue_type = &"trait"
+display_text = "동률인 참가자가 여러 명이면 모두 영향받을 수 있다"
+related_tags = PackedStringArray("judgment", "rich", "poor")
+estimated_reward = 450
+estimated_risk_cost = 230
+
 [resource]
 script = ExtResource("1_def")
 id = &"black_ledger"
-display_name = "검은 장부"
+actual_name = "검은 장부"
 description = "매 심판마다 부자 전원 +80골드, 빈자 전원 체력 1 피해."
-public_label = "봉인된 거래 기록물"
-public_role_group = "심판"
-public_risk_range = "중간"
-public_value_range = "중간"
-public_trigger_timing = "반복"
-public_target_type = "재산 기준 다수"
-category = &"judgment"
-base_value = 600
+public_name = "이름 없는 회계 장부"
+category = &"ownership"
+risk_tier = &"medium"
+risk_range = "중간"
+value_tier = &"medium"
+value_range = "중간"
+trigger_timing = "심판"
+target_type = "자산 기준"
+tags = PackedStringArray("ownership", "economy", "judgment", "rich", "poor", "income", "high_variance")
+public_clues = Array[ExtResource("3_clue")]([SubResource("Clue_role"), SubResource("Clue_risk"), SubResource("Clue_value"), SubResource("Clue_timing"), SubResource("Clue_target")])
+hidden_clues = Array[ExtResource("3_clue")]([SubResource("Clue_hidden_split"), SubResource("Clue_hidden_owner"), SubResource("Clue_hidden_ties")])
 starting_bid = 250
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_rich"), SubResource("Effect_poor")])

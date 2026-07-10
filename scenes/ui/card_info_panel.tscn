@@ -1,0 +1,66 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/card_info_panel.gd" id="1"]
+[ext_resource type="Texture2D" path="res://public/last_bid_symbol_extracted.png" id="2"]
+
+[node name="CardInfoPanel" type="PanelContainer"]
+custom_minimum_size = Vector2(430, 250)
+script = ExtResource("1")
+
+[node name="Column" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Eyebrow" type="Label" parent="Column"]
+layout_mode = 2
+theme_type_variation = &"GoldLabel"
+theme_override_font_sizes/font_size = 13
+text = "CURRENT LOT"
+horizontal_alignment = 1
+
+[node name="IdentityRow" type="HBoxContainer" parent="Column"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ImageFrame" type="PanelContainer" parent="Column/IdentityRow"]
+custom_minimum_size = Vector2(96, 112)
+layout_mode = 2
+
+[node name="Image" type="TextureRect" parent="Column/IdentityRow/ImageFrame"]
+layout_mode = 2
+texture = ExtResource("2")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Identity" type="VBoxContainer" parent="Column/IdentityRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="CardNameLabel" type="Label" parent="Column/IdentityRow/Identity"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"BrightGoldLabel"
+theme_override_font_sizes/font_size = 25
+text = "봉인된 보관 물품"
+text_overrun_behavior = 3
+clip_text = true
+
+[node name="RevealLabel" type="Label" parent="Column/IdentityRow/Identity"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "기본 단서"
+
+[node name="Separator" type="HSeparator" parent="Column"]
+layout_mode = 2
+
+[node name="ClueList" type="RichTextLabel" parent="Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 105)
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+fit_content = false
+scroll_active = true
+text = "공개 단서"

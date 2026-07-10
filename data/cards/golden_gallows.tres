@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="CardDefinition" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
 [ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
+[ext_resource type="Script" path="res://scripts/cards/card_clue_definition.gd" id="3_clue"]
 
 [sub_resource type="Resource" id="Effect_judgment"]
 script = ExtResource("2_effect")
@@ -12,18 +13,93 @@ amount = -2
 consume_after_trigger = true
 description = "다음 JUDGMENT에 가장 부유한 참가자 전원 체력 2 피해"
 
+[sub_resource type="Resource" id="Clue_role"]
+script = ExtResource("3_clue")
+clue_id = &"gallows_role"
+clue_type = &"role"
+display_text = "심판"
+related_tags = PackedStringArray("judgment", "disaster")
+estimated_reward = 360
+estimated_risk_cost = 230
+
+[sub_resource type="Resource" id="Clue_risk"]
+script = ExtResource("3_clue")
+clue_id = &"gallows_risk"
+clue_type = &"risk"
+display_text = "높음"
+related_tags = PackedStringArray("high_risk", "lethal", "disaster")
+estimated_reward = 420
+estimated_risk_cost = 320
+
+[sub_resource type="Resource" id="Clue_value"]
+script = ExtResource("3_clue")
+clue_id = &"gallows_value"
+clue_type = &"value"
+display_text = "상황 의존"
+related_tags = PackedStringArray("high_reward", "gamble")
+estimated_reward = 500
+estimated_risk_cost = 250
+
+[sub_resource type="Resource" id="Clue_timing"]
+script = ExtResource("3_clue")
+clue_id = &"gallows_timing"
+clue_type = &"timing"
+display_text = "다음 심판"
+related_tags = PackedStringArray("judgment", "delayed")
+estimated_reward = 410
+estimated_risk_cost = 270
+
+[sub_resource type="Resource" id="Clue_target"]
+script = ExtResource("3_clue")
+clue_id = &"gallows_target"
+clue_type = &"target"
+display_text = "자산 기준"
+related_tags = PackedStringArray("rich")
+estimated_reward = 430
+estimated_risk_cost = 260
+
+[sub_resource type="Resource" id="Clue_hidden_rich"]
+script = ExtResource("3_clue")
+clue_id = &"gallows_hidden_rich"
+clue_type = &"trait"
+display_text = "가장 많은 자산을 가진 참가자를 노린다"
+related_tags = PackedStringArray("rich", "judgment", "high_risk")
+estimated_reward = 500
+estimated_risk_cost = 310
+
+[sub_resource type="Resource" id="Clue_hidden_many"]
+script = ExtResource("3_clue")
+clue_id = &"gallows_hidden_many"
+clue_type = &"trait"
+display_text = "조건이 같다면 대상이 여러 명일 수 있다"
+related_tags = PackedStringArray("rich", "disaster")
+estimated_reward = 460
+estimated_risk_cost = 300
+
+[sub_resource type="Resource" id="Clue_hidden_consume"]
+script = ExtResource("3_clue")
+clue_id = &"gallows_hidden_consume"
+clue_type = &"trait"
+display_text = "발동 후 사라진다"
+related_tags = PackedStringArray("unique", "judgment")
+estimated_reward = 440
+estimated_risk_cost = 250
+
 [resource]
 script = ExtResource("1_def")
 id = &"golden_gallows"
-display_name = "황금 교수대"
+actual_name = "황금 교수대"
 description = "다음 심판에 가장 부유한 참가자 전원 체력 2 피해. 발동 후 제거."
-public_label = "금빛 장식 물품"
-public_role_group = "공격"
-public_risk_range = "높음"
-public_value_range = "중간~높음"
-public_trigger_timing = "심판"
-public_target_type = "재산 기준 다수"
+public_name = "금빛 처형 장치"
 category = &"judgment"
-base_value = 700
+risk_tier = &"high"
+risk_range = "높음"
+value_tier = &"situational"
+value_range = "상황 의존"
+trigger_timing = "다음 심판"
+target_type = "자산 기준"
+tags = PackedStringArray("judgment", "high_risk", "rich", "lethal", "disaster", "high_reward", "gamble")
+public_clues = Array[ExtResource("3_clue")]([SubResource("Clue_role"), SubResource("Clue_risk"), SubResource("Clue_value"), SubResource("Clue_timing"), SubResource("Clue_target")])
+hidden_clues = Array[ExtResource("3_clue")]([SubResource("Clue_hidden_rich"), SubResource("Clue_hidden_many"), SubResource("Clue_hidden_consume")])
 starting_bid = 300
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_judgment")])

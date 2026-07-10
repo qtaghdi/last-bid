@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="CardDefinition" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
 [ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
+[ext_resource type="Script" path="res://scripts/cards/card_clue_definition.gd" id="3_clue"]
 
 [sub_resource type="Resource" id="Effect_advance"]
 script = ExtResource("2_effect")
@@ -22,18 +23,93 @@ nested_effect_type = 1
 overflow_hp_per_gold = 200
 description = "2라운드 후 700골드 차감, 부족한 200골드마다 체력 1 피해"
 
+[sub_resource type="Resource" id="Clue_role"]
+script = ExtResource("3_clue")
+clue_id = &"loan_role"
+clue_type = &"role"
+display_text = "경제"
+related_tags = PackedStringArray("economy", "loan", "contract")
+estimated_reward = 560
+estimated_risk_cost = 210
+
+[sub_resource type="Resource" id="Clue_risk"]
+script = ExtResource("3_clue")
+clue_id = &"loan_risk"
+clue_type = &"risk"
+display_text = "중간~높음"
+related_tags = PackedStringArray("debt", "high_risk")
+estimated_reward = 540
+estimated_risk_cost = 290
+
+[sub_resource type="Resource" id="Clue_value"]
+script = ExtResource("3_clue")
+clue_id = &"loan_value"
+clue_type = &"value"
+display_text = "높음"
+related_tags = PackedStringArray("high_reward", "economy")
+estimated_reward = 680
+estimated_risk_cost = 230
+
+[sub_resource type="Resource" id="Clue_timing"]
+script = ExtResource("3_clue")
+clue_id = &"loan_timing"
+clue_type = &"timing"
+display_text = "즉시 / 지연"
+related_tags = PackedStringArray("immediate", "delayed")
+estimated_reward = 610
+estimated_risk_cost = 260
+
+[sub_resource type="Resource" id="Clue_target"]
+script = ExtResource("3_clue")
+clue_id = &"loan_target"
+clue_type = &"target"
+display_text = "소유자"
+related_tags = PackedStringArray("ownership", "contract")
+estimated_reward = 550
+estimated_risk_cost = 230
+
+[sub_resource type="Resource" id="Clue_hidden_cash"]
+script = ExtResource("3_clue")
+clue_id = &"loan_hidden_cash"
+clue_type = &"trait"
+display_text = "즉시 큰 자금을 얻는다"
+related_tags = PackedStringArray("economy", "loan", "immediate", "high_reward")
+estimated_reward = 720
+estimated_risk_cost = 190
+
+[sub_resource type="Resource" id="Clue_hidden_debt"]
+script = ExtResource("3_clue")
+clue_id = &"loan_hidden_debt"
+clue_type = &"trait"
+display_text = "일정 시간이 지나면 더 큰 금액을 상환해야 한다"
+related_tags = PackedStringArray("debt", "delayed", "contract")
+estimated_reward = 620
+estimated_risk_cost = 340
+
+[sub_resource type="Resource" id="Clue_hidden_life"]
+script = ExtResource("3_clue")
+clue_id = &"loan_hidden_life"
+clue_type = &"trait"
+display_text = "상환하지 못하면 생명으로 대가를 치른다"
+related_tags = PackedStringArray("debt", "high_risk", "lethal")
+estimated_reward = 570
+estimated_risk_cost = 390
+
 [resource]
 script = ExtResource("1_def")
 id = &"blood_loan"
-display_name = "피의 대출"
+actual_name = "피의 대출"
 description = "즉시 +500골드. 2라운드 후 700골드 상환, 부족액은 체력으로 지불."
-public_label = "미확인 금융 계약서"
-public_role_group = "자금"
-public_risk_range = "중간~높음"
-public_value_range = "높음"
-public_trigger_timing = "즉시·지연"
-public_target_type = "소유자"
-category = &"contract"
-base_value = 550
+public_name = "붉은 서명의 대출 계약서"
+category = &"economy"
+risk_tier = &"high"
+risk_range = "중간~높음"
+value_tier = &"high"
+value_range = "높음"
+trigger_timing = "즉시 / 지연"
+target_type = "소유자"
+tags = PackedStringArray("economy", "contract", "loan", "debt", "immediate", "delayed", "high_reward", "high_risk")
+public_clues = Array[ExtResource("3_clue")]([SubResource("Clue_role"), SubResource("Clue_risk"), SubResource("Clue_value"), SubResource("Clue_timing"), SubResource("Clue_target")])
+hidden_clues = Array[ExtResource("3_clue")]([SubResource("Clue_hidden_cash"), SubResource("Clue_hidden_debt"), SubResource("Clue_hidden_life")])
 starting_bid = 200
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_advance"), SubResource("Effect_repayment")])

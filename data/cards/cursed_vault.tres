@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="CardDefinition" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
 [ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
+[ext_resource type="Script" path="res://scripts/cards/card_clue_definition.gd" id="3_clue"]
 
 [sub_resource type="Resource" id="Effect_income"]
 script = ExtResource("2_effect")
@@ -21,18 +22,93 @@ delay_rounds = 3
 nested_effect_type = 0
 description = "3라운드 후 소유자 체력 2 피해"
 
+[sub_resource type="Resource" id="Clue_role"]
+script = ExtResource("3_clue")
+clue_id = &"vault_role"
+clue_type = &"role"
+display_text = "소유"
+related_tags = PackedStringArray("ownership", "collection")
+estimated_reward = 480
+estimated_risk_cost = 150
+
+[sub_resource type="Resource" id="Clue_risk"]
+script = ExtResource("3_clue")
+clue_id = &"vault_risk"
+clue_type = &"risk"
+display_text = "중간~높음"
+related_tags = PackedStringArray("cursed", "high_risk")
+estimated_reward = 450
+estimated_risk_cost = 260
+
+[sub_resource type="Resource" id="Clue_value"]
+script = ExtResource("3_clue")
+clue_id = &"vault_value"
+clue_type = &"value"
+display_text = "높음"
+related_tags = PackedStringArray("economy", "high_reward")
+estimated_reward = 620
+estimated_risk_cost = 180
+
+[sub_resource type="Resource" id="Clue_timing"]
+script = ExtResource("3_clue")
+clue_id = &"vault_timing"
+clue_type = &"timing"
+display_text = "지속 / 지연"
+related_tags = PackedStringArray("income", "delayed")
+estimated_reward = 520
+estimated_risk_cost = 200
+
+[sub_resource type="Resource" id="Clue_target"]
+script = ExtResource("3_clue")
+clue_id = &"vault_target"
+clue_type = &"target"
+display_text = "소유자"
+related_tags = PackedStringArray("ownership")
+estimated_reward = 480
+estimated_risk_cost = 170
+
+[sub_resource type="Resource" id="Clue_hidden_income"]
+script = ExtResource("3_clue")
+clue_id = &"vault_hidden_income"
+clue_type = &"trait"
+display_text = "보유하는 동안 경제적 이득이 반복된다"
+related_tags = PackedStringArray("economy", "income", "high_reward")
+estimated_reward = 650
+estimated_risk_cost = 130
+
+[sub_resource type="Resource" id="Clue_hidden_cost"]
+script = ExtResource("3_clue")
+clue_id = &"vault_hidden_cost"
+clue_type = &"trait"
+display_text = "시간이 지나면 소유자가 큰 대가를 치른다"
+related_tags = PackedStringArray("cursed", "delayed", "high_risk")
+estimated_reward = 520
+estimated_risk_cost = 310
+
+[sub_resource type="Resource" id="Clue_hidden_persist"]
+script = ExtResource("3_clue")
+clue_id = &"vault_hidden_persist"
+clue_type = &"trait"
+display_text = "소유권이 바뀌어도 지연된 대가는 남는다고 전해진다"
+related_tags = PackedStringArray("ownership", "delayed", "cursed")
+estimated_reward = 500
+estimated_risk_cost = 280
+
 [resource]
 script = ExtResource("1_def")
 id = &"cursed_vault"
-display_name = "저주받은 금고"
+actual_name = "저주받은 금고"
 description = "매 라운드 골드 +120. 3라운드 후 소유자에게 체력 2 피해."
-public_label = "봉인된 보관 물품"
-public_role_group = "소유"
-public_risk_range = "중간~높음"
-public_value_range = "중간"
-public_trigger_timing = "지연"
-public_target_type = "소유자"
-category = &"relic"
-base_value = 560
+public_name = "봉인된 보관 물품"
+category = &"ownership"
+risk_tier = &"high"
+risk_range = "중간~높음"
+value_tier = &"high"
+value_range = "높음"
+trigger_timing = "지속 / 지연"
+target_type = "소유자"
+tags = PackedStringArray("ownership", "economy", "income", "cursed", "delayed", "high_reward", "collection")
+public_clues = Array[ExtResource("3_clue")]([SubResource("Clue_role"), SubResource("Clue_risk"), SubResource("Clue_value"), SubResource("Clue_timing"), SubResource("Clue_target")])
+hidden_clues = Array[ExtResource("3_clue")]([SubResource("Clue_hidden_income"), SubResource("Clue_hidden_cost"), SubResource("Clue_hidden_persist")])
 starting_bid = 200
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_income"), SubResource("Effect_curse")])

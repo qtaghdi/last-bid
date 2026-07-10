@@ -36,12 +36,6 @@ func start_auction(actors: Array[ActorState]) -> void:
 		actor.reset_for_auction()
 		if actor.alive:
 			_turn_order.append(actor.actor_id)
-	_npc_ai.prepare_auction(
-		_actors,
-		_run_state.current_card,
-		_run_state.current_min_increment,
-		_rng
-	)
 	if _turn_order.is_empty():
 		_complete = true
 		_events.log_debug("경매 참가자가 없어 카드를 폐기합니다.")
@@ -104,7 +98,13 @@ func perform_npc_turn() -> void:
 	if actor == null or actor.actor_type != GameConstants.ActorType.NPC:
 		return
 	var required_bid: int = next_required_bid()
-	if _npc_ai.should_bid(actor, required_bid, _rng):
+	var decision: Dictionary = _npc_ai.decide_action(
+		actor,
+		required_bid,
+		not _run_state.highest_bidder_id.is_empty(),
+		_rng
+	)
+	if bool(decision.get("bid", false)):
 		place_next_bid(actor.actor_id)
 	else:
 		pass_current(actor.actor_id)
@@ -114,7 +114,7 @@ func settle() -> Dictionary:
 		return {}
 	_settled = true
 	if _run_state.highest_bidder_id.is_empty():
-		_events.log_debug("아무도 입찰하지 않아 %s 카드를 폐기합니다." % _run_state.current_card.display_name)
+		_events.log_debug("아무도 입찰하지 않아 %s 카드를 폐기합니다." % _run_state.current_card.actual_name)
 		return {"winner_id": &"", "amount": 0}
 	var winner: ActorState = _actor_by_id(_run_state.highest_bidder_id)
 	if winner == null or not winner.alive or winner.gold < _run_state.current_bid:
@@ -122,9 +122,9 @@ func settle() -> Dictionary:
 		return {"winner_id": &"", "amount": 0, "error": true}
 	var paid_amount: int = _run_state.current_bid
 	winner.gold -= paid_amount
-	_events.gold_changed.emit(winner.actor_id, -paid_amount, winner.gold)
+	_events.gold_changed.emit(winner.actor_id, -paid_amount, winner.gold, &"")
 	_events.auction_won.emit(winner.actor_id, _run_state.current_card.id, paid_amount)
-	_events.log_debug("%s 낙찰: %s (%d골드)" % [winner.display_name, _run_state.current_card.display_name, paid_amount])
+	_events.log_debug("%s 낙찰: %s (%d골드)" % [winner.display_name, _run_state.current_card.actual_name, paid_amount])
 	return {"winner_id": winner.actor_id, "amount": paid_amount}
 
 func npc_maximum_bids() -> Dictionary:

@@ -35,11 +35,23 @@ enum EffectTrigger {
 	ON_LETHAL_DAMAGE,
 }
 
+enum RevealLevel {
+	UNKNOWN,
+	BASIC_CLUES,
+	INVESTIGATED,
+	FULLY_REVEALED,
+}
+
+const ARCHETYPE_COLLECTOR: StringName = &"collector"
+const ARCHETYPE_CREDITOR: StringName = &"creditor"
+const ARCHETYPE_GAMBLER: StringName = &"gambler"
+
 const PLAYER_ID: StringName = &"player"
 const TOTAL_ROUNDS: int = 10
 const STARTING_HP: int = 3
 const MAX_HP: int = 3
 const STARTING_GOLD: int = 800
+const STARTING_INFO_TOKENS: int = 2
 const DEFAULT_MIN_INCREMENT: int = 50
 const PRICE_SURGE_INCREMENT: int = 150
 const AUCTION_ACTION_LIMIT: int = 100

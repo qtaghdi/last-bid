@@ -8,6 +8,10 @@ var rng: CentralRng
 var auction: AuctionSystem
 var effects: CardEffectSystem
 var npc_ai: SimpleNpcAi
+var information_service: InformationService
+var dialogue_service: NpcDialogueService
+var knowledge_states: Dictionary = {}
+var knowledge_by_lot: Dictionary = {}
 
 func _ready() -> void:
 	_initialize_services()
@@ -17,17 +21,23 @@ func start_new_run(seed_value: int = GameConstants.DEFAULT_SEED) -> void:
 	run_state = RunState.new()
 	run_state.reset(seed_value)
 	rng = CentralRng.new(seed_value)
+	dialogue_service = NpcDialogueService.new()
 	npc_ai = SimpleNpcAi.new()
+	npc_ai.setup(events, dialogue_service)
+	information_service = InformationService.new()
+	information_service.setup(rng, events)
 	auction = AuctionSystem.new()
 	auction.setup(run_state, events, rng, npc_ai)
 	effects = CardEffectSystem.new()
 	effects.setup(run_state, events, rng)
 	actors = [
 		ActorState.create(GameConstants.PLAYER_ID, "플레이어", GameConstants.ActorType.PLAYER),
-		ActorState.create(&"npc_1", "수집가", GameConstants.ActorType.NPC),
-		ActorState.create(&"npc_2", "채권자", GameConstants.ActorType.NPC),
-		ActorState.create(&"npc_3", "도박사", GameConstants.ActorType.NPC),
+		ActorState.create(&"npc_1", "수집가", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_COLLECTOR),
+		ActorState.create(&"npc_2", "채권자", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_CREDITOR),
+		ActorState.create(&"npc_3", "도박사", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_GAMBLER),
 	]
+	knowledge_states = {}
+	knowledge_by_lot = {}
 	_transition_to(GameConstants.Phase.RUN_SETUP, true)
 	run_state.deck = _build_deck()
 	if run_state.deck.size() < GameConstants.TOTAL_ROUNDS:
@@ -76,6 +86,29 @@ func request_player_pass() -> bool:
 		_drive_npc_turns()
 	return passed
 
+func request_investigate() -> bool:
+	if not can_investigate():
+		events.log_debug("조사 불가: 토큰, Phase 또는 남은 단서를 확인하세요.")
+		return false
+	var state: KnowledgeState = player_knowledge()
+	var clue: CardClueDefinition = information_service.investigate(state, run_state.current_card)
+	if clue == null:
+		events.log_debug("추가 조사로 확인할 수 있는 단서가 없습니다.")
+		return false
+	run_state.player_info_tokens -= 1
+	events.information_tokens_changed.emit(run_state.player_info_tokens)
+	events.log_debug("추가 조사 성공: %s" % clue.display_text)
+	events.state_updated.emit()
+	return true
+
+func can_investigate() -> bool:
+	return (
+		run_state.current_phase == GameConstants.Phase.PRE_INFO
+		and run_state.player_info_tokens > 0
+		and information_service != null
+		and information_service.can_investigate(player_knowledge(), run_state.current_card)
+	)
+
 func can_player_bid() -> bool:
 	return (
 		run_state.current_phase == GameConstants.Phase.AUCTION
@@ -105,6 +138,69 @@ func actor_by_id(actor_id: StringName) -> ActorState:
 		if actor.actor_id == actor_id:
 			return actor
 	return null
+
+func knowledge_for(actor_id: StringName) -> KnowledgeState:
+	return knowledge_states.get(actor_id) as KnowledgeState
+
+func player_knowledge() -> KnowledgeState:
+	return knowledge_for(GameConstants.PLAYER_ID)
+
+func npc_dialogue_for(actor_id: StringName) -> String:
+	return npc_ai.dialogue_for(actor_id) if npc_ai != null else ""
+
+func npc_evaluation_for(actor_id: StringName) -> Dictionary:
+	return npc_ai.evaluation_for(actor_id) if npc_ai != null else {}
+
+func debug_information_report() -> String:
+	if run_state.current_card == null:
+		return "현재 카드 없음"
+	var lines: PackedStringArray = [
+		"ACTUAL: %s [%s]" % [run_state.current_card.actual_name, run_state.current_card.id],
+		"%s" % run_state.current_card.description,
+		"RNG SEED: %d" % run_state.rng_seed,
+		"LOT: %s" % run_state.current_lot_id,
+		"\nALL PUBLIC CLUES",
+	]
+	for clue: CardClueDefinition in run_state.current_card.public_clues:
+		lines.append("- %s: %s" % [clue.clue_id, clue.display_text])
+	lines.append("ALL HIDDEN CLUES")
+	for clue: CardClueDefinition in run_state.current_card.hidden_clues:
+		lines.append("- %s: %s" % [clue.clue_id, clue.display_text])
+	for actor: ActorState in actors:
+		var state: KnowledgeState = knowledge_for(actor.actor_id)
+		lines.append("\n%s KNOWLEDGE" % actor.display_name)
+		lines.append(state.debug_summary() if state != null else "없음")
+		if actor.actor_type == GameConstants.ActorType.NPC:
+			var evaluation: Dictionary = npc_evaluation_for(actor.actor_id)
+			lines.append(
+				"평가 R=%d Risk=-%d Tag=%+d Inv=%+d State=%+d Strat=%+d Final=%d"
+				% [
+					evaluation.get("estimated_reward", 0),
+					evaluation.get("estimated_risk_cost", 0),
+					evaluation.get("archetype_tag_bonus", 0),
+					evaluation.get("inventory_synergy", 0),
+					evaluation.get("current_state_modifier", 0),
+					evaluation.get("strategic_modifier", 0),
+					evaluation.get("final_value", 0),
+				]
+			)
+			lines.append(
+				"최대 입찰=%d 허세 의도=%s 최근 허세=%s"
+				% [
+					npc_ai.maximum_bid_for(actor.actor_id),
+					npc_ai.has_bluff_intent(actor.actor_id),
+					npc_ai.is_bluffing(actor.actor_id),
+				]
+			)
+	return "\n".join(lines)
+
+func debug_effect_report() -> String:
+	if run_state.current_card == null:
+		return "현재 카드 없음"
+	var lines: PackedStringArray = [run_state.current_card.description, "", "전체 효과"]
+	for effect: CardEffectDefinition in run_state.current_card.effects:
+		lines.append("• %s" % effect.description)
+	return "\n".join(lines)
 
 func deck_order() -> Array[StringName]:
 	var order: Array[StringName] = []
@@ -137,6 +233,9 @@ func _begin_round(round_number: int) -> void:
 		return
 	run_state.current_round = round_number
 	run_state.current_card = run_state.deck[round_number - 1]
+	run_state.current_lot_id = StringName(
+		"lot_%02d_%s" % [round_number, run_state.current_card.id]
+	)
 	run_state.current_bid = 0
 	run_state.highest_bidder_id = &""
 	run_state.current_min_increment = GameConstants.DEFAULT_MIN_INCREMENT
@@ -144,11 +243,26 @@ func _begin_round(round_number: int) -> void:
 		run_state.current_min_increment = int(
 			run_state.active_global_effects.get(&"min_increment_value", GameConstants.PRICE_SURGE_INCREMENT)
 		)
+	knowledge_states = information_service.distribute(
+		run_state.current_card,
+		run_state.current_lot_id,
+		actors
+	)
+	knowledge_by_lot[run_state.current_lot_id] = knowledge_states
+	npc_ai.prepare_lot(
+		actors,
+		knowledge_states,
+		_inventory_tags_by_actor(),
+		run_state.current_card.starting_bid,
+		run_state.current_min_increment,
+		round_number,
+		rng
+	)
 	_transition_to(GameConstants.Phase.PRE_INFO)
 	events.round_started.emit(round_number, run_state.current_card.id)
 	events.log_debug(
 		"라운드 %d 시작 — %s / 최소 인상 %d골드"
-		% [round_number, run_state.current_card.display_name, run_state.current_min_increment]
+		% [round_number, run_state.current_card.actual_name, run_state.current_min_increment]
 	)
 	events.state_updated.emit()
 
@@ -209,6 +323,22 @@ func _alive_actor_count() -> int:
 		if actor.alive:
 			count += 1
 	return count
+
+func _inventory_tags_by_actor() -> Dictionary:
+	var result: Dictionary = {}
+	for actor: ActorState in actors:
+		var tags: PackedStringArray = []
+		for instance: CardInstance in actor.inventory:
+			if instance.consumed:
+				continue
+			var definition: CardDefinition = CardCatalog.by_id(instance.definition_id)
+			if definition == null:
+				continue
+			for tag: String in definition.tags:
+				if not tags.has(tag):
+					tags.append(tag)
+		result[actor.actor_id] = tags
+	return result
 
 func _finish_run(victory: bool, reason: String) -> void:
 	if run_state.finished:

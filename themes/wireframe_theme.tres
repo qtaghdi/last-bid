@@ -1,0 +1,74 @@
+[gd_resource type="Theme" load_steps=5 format=3]
+
+[sub_resource type="StyleBoxFlat" id="Panel"]
+bg_color = Color(0.125, 0.114, 0.102, 0.96)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.42, 0.34, 0.22, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+content_margin_left = 14.0
+content_margin_top = 12.0
+content_margin_right = 14.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="ButtonNormal"]
+bg_color = Color(0.19, 0.17, 0.145, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.58, 0.45, 0.25, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="ButtonHover"]
+bg_color = Color(0.29, 0.235, 0.15, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.83, 0.65, 0.34, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="ButtonDisabled"]
+bg_color = Color(0.11, 0.105, 0.1, 0.75)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.25, 0.235, 0.22, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[resource]
+default_font_size = 16
+default_base_scale = 1.0
+PanelContainer/styles/panel = SubResource("Panel")
+Button/colors/font_color = Color(0.9, 0.84, 0.72, 1)
+Button/colors/font_hover_color = Color(1, 0.9, 0.68, 1)
+Button/colors/font_disabled_color = Color(0.4, 0.38, 0.35, 1)
+Button/styles/normal = SubResource("ButtonNormal")
+Button/styles/hover = SubResource("ButtonHover")
+Button/styles/pressed = SubResource("ButtonHover")
+Button/styles/disabled = SubResource("ButtonDisabled")
+Label/colors/font_color = Color(0.9, 0.86, 0.78, 1)
+GoldLabel/base_type = &"Label"
+GoldLabel/colors/font_color = Color(0.76, 0.6, 0.32, 1)
+BrightGoldLabel/base_type = &"Label"
+BrightGoldLabel/colors/font_color = Color(0.88, 0.74, 0.46, 1)
+MutedLabel/base_type = &"Label"
+MutedLabel/colors/font_color = Color(0.58, 0.55, 0.5, 1)
+LineEdit/colors/font_color = Color(0.9, 0.86, 0.78, 1)
+RichTextLabel/colors/default_color = Color(0.86, 0.82, 0.74, 1)

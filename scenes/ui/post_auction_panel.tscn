@@ -1,0 +1,61 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/post_auction_panel.gd" id="1"]
+
+[node name="PostAuctionPanel" type="PanelContainer"]
+custom_minimum_size = Vector2(500, 310)
+script = ExtResource("1")
+
+[node name="Column" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Column"]
+layout_mode = 2
+theme_type_variation = &"GoldLabel"
+theme_override_font_sizes/font_size = 15
+text = "낙찰 결과"
+
+[node name="ResultLabel" type="Label" parent="Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"BrightGoldLabel"
+theme_override_font_sizes/font_size = 24
+text = "낙찰 정보"
+autowrap_mode = 2
+
+[node name="OwnershipLabel" type="Label" parent="Column"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+text = "공개 상태"
+autowrap_mode = 2
+
+[node name="FutureTitle" type="Label" parent="Column"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "MILESTONE 3 — 준비 중"
+
+[node name="FutureActions" type="HBoxContainer" parent="Column"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="OpenButton" type="Button" parent="Column/FutureActions"]
+layout_mode = 2
+disabled = true
+text = "개봉 · 준비 중"
+
+[node name="KeepButton" type="Button" parent="Column/FutureActions"]
+layout_mode = 2
+disabled = true
+text = "보관 · 준비 중"
+
+[node name="SellButton" type="Button" parent="Column/FutureActions"]
+layout_mode = 2
+disabled = true
+text = "판매 · 준비 중"
+
+[node name="BurnButton" type="Button" parent="Column/FutureActions"]
+layout_mode = 2
+disabled = true
+text = "소각 · 준비 중"

@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="CardDefinition" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
 [ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
+[ext_resource type="Script" path="res://scripts/cards/card_clue_definition.gd" id="3_clue"]
 
 [sub_resource type="Resource" id="Effect_rule"]
 script = ExtResource("2_effect")
@@ -14,18 +15,93 @@ duration_rounds = 1
 consume_after_trigger = true
 description = "다음 라운드 최소 인상액 150골드"
 
+[sub_resource type="Resource" id="Clue_role"]
+script = ExtResource("3_clue")
+clue_id = &"surge_role"
+clue_type = &"role"
+display_text = "재앙"
+related_tags = PackedStringArray("disaster", "auction")
+estimated_reward = 350
+estimated_risk_cost = 200
+
+[sub_resource type="Resource" id="Clue_risk"]
+script = ExtResource("3_clue")
+clue_id = &"surge_risk"
+clue_type = &"risk"
+display_text = "중간"
+related_tags = PackedStringArray("disaster", "high_variance")
+estimated_reward = 380
+estimated_risk_cost = 220
+
+[sub_resource type="Resource" id="Clue_value"]
+script = ExtResource("3_clue")
+clue_id = &"surge_value"
+clue_type = &"value"
+display_text = "상황 의존"
+related_tags = PackedStringArray("high_variance", "gamble")
+estimated_reward = 460
+estimated_risk_cost = 210
+
+[sub_resource type="Resource" id="Clue_timing"]
+script = ExtResource("3_clue")
+clue_id = &"surge_timing"
+clue_type = &"timing"
+display_text = "다음 라운드"
+related_tags = PackedStringArray("delayed", "auction")
+estimated_reward = 390
+estimated_risk_cost = 200
+
+[sub_resource type="Resource" id="Clue_target"]
+script = ExtResource("3_clue")
+clue_id = &"surge_target"
+clue_type = &"target"
+display_text = "전체 경매"
+related_tags = PackedStringArray("global_rule", "auction")
+estimated_reward = 410
+estimated_risk_cost = 230
+
+[sub_resource type="Resource" id="Clue_hidden_raise"]
+script = ExtResource("3_clue")
+clue_id = &"surge_hidden_raise"
+clue_type = &"trait"
+display_text = "다음 경매의 가격 상승 폭이 커진다"
+related_tags = PackedStringArray("auction", "global_rule", "disaster")
+estimated_reward = 460
+estimated_risk_cost = 280
+
+[sub_resource type="Resource" id="Clue_hidden_end"]
+script = ExtResource("3_clue")
+clue_id = &"surge_hidden_end"
+clue_type = &"trait"
+display_text = "효과는 오래 지속되지 않는다"
+related_tags = PackedStringArray("delayed", "global_rule")
+estimated_reward = 430
+estimated_risk_cost = 210
+
+[sub_resource type="Resource" id="Clue_hidden_advantage"]
+script = ExtResource("3_clue")
+clue_id = &"surge_hidden_advantage"
+clue_type = &"trait"
+display_text = "일부 참가자에게는 가격 변화가 기회가 될 수 있다"
+related_tags = PackedStringArray("high_variance", "gamble")
+estimated_reward = 500
+estimated_risk_cost = 230
+
 [resource]
 script = ExtResource("1_def")
 id = &"price_surge"
-display_name = "가격 폭주"
+actual_name = "가격 폭주"
 description = "다음 라운드 최소 인상액을 150골드로 변경. 해당 라운드 후 복구."
-public_label = "표식이 있는 호가표"
-public_role_group = "규칙"
-public_risk_range = "중간"
-public_value_range = "중간"
-public_trigger_timing = "지연"
-public_target_type = "경매 전체"
-category = &"global"
-base_value = 450
+public_name = "붉은 입찰 규칙서"
+category = &"disaster"
+risk_tier = &"medium"
+risk_range = "중간"
+value_tier = &"situational"
+value_range = "상황 의존"
+trigger_timing = "다음 라운드"
+target_type = "전체 경매"
+tags = PackedStringArray("disaster", "auction", "global_rule", "high_variance", "gamble", "delayed")
+public_clues = Array[ExtResource("3_clue")]([SubResource("Clue_role"), SubResource("Clue_risk"), SubResource("Clue_value"), SubResource("Clue_timing"), SubResource("Clue_target")])
+hidden_clues = Array[ExtResource("3_clue")]([SubResource("Clue_hidden_raise"), SubResource("Clue_hidden_end"), SubResource("Clue_hidden_advantage")])
 starting_bid = 150
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_rule")])

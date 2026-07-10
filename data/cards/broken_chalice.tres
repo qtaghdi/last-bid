@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="CardDefinition" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
 [ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
+[ext_resource type="Script" path="res://scripts/cards/card_clue_definition.gd" id="3_clue"]
 
 [sub_resource type="Resource" id="Effect_guard"]
 script = ExtResource("2_effect")
@@ -11,18 +12,93 @@ target_selector = 3
 consume_after_trigger = true
 description = "다음 치명 피해를 1회 무효화하고 제거"
 
+[sub_resource type="Resource" id="Clue_role"]
+script = ExtResource("3_clue")
+clue_id = &"chalice_role"
+clue_type = &"role"
+display_text = "소유"
+related_tags = PackedStringArray("ownership", "defense")
+estimated_reward = 430
+estimated_risk_cost = 90
+
+[sub_resource type="Resource" id="Clue_risk"]
+script = ExtResource("3_clue")
+clue_id = &"chalice_risk"
+clue_type = &"risk"
+display_text = "낮음~중간"
+related_tags = PackedStringArray("defense", "cursed")
+estimated_reward = 400
+estimated_risk_cost = 110
+
+[sub_resource type="Resource" id="Clue_value"]
+script = ExtResource("3_clue")
+clue_id = &"chalice_value"
+clue_type = &"value"
+display_text = "중간"
+related_tags = PackedStringArray("defense", "lethal_prevention")
+estimated_reward = 470
+estimated_risk_cost = 100
+
+[sub_resource type="Resource" id="Clue_timing"]
+script = ExtResource("3_clue")
+clue_id = &"chalice_timing"
+clue_type = &"timing"
+display_text = "조건부"
+related_tags = PackedStringArray("lethal_prevention")
+estimated_reward = 420
+estimated_risk_cost = 120
+
+[sub_resource type="Resource" id="Clue_target"]
+script = ExtResource("3_clue")
+clue_id = &"chalice_target"
+clue_type = &"target"
+display_text = "소유자"
+related_tags = PackedStringArray("ownership")
+estimated_reward = 410
+estimated_risk_cost = 100
+
+[sub_resource type="Resource" id="Clue_hidden_guard"]
+script = ExtResource("3_clue")
+clue_id = &"chalice_hidden_guard"
+clue_type = &"trait"
+display_text = "치명적인 결과를 한 번 막을 수 있다"
+related_tags = PackedStringArray("defense", "lethal_prevention", "rare")
+estimated_reward = 620
+estimated_risk_cost = 70
+
+[sub_resource type="Resource" id="Clue_hidden_consume"]
+script = ExtResource("3_clue")
+clue_id = &"chalice_hidden_consume"
+clue_type = &"trait"
+display_text = "사용 후 사라진다"
+related_tags = PackedStringArray("unique", "lethal_prevention")
+estimated_reward = 500
+estimated_risk_cost = 100
+
+[sub_resource type="Resource" id="Clue_hidden_uncertain"]
+script = ExtResource("3_clue")
+clue_id = &"chalice_hidden_uncertain"
+clue_type = &"trait"
+display_text = "보호가 발동하는 조건은 평상시 확인하기 어렵다"
+related_tags = PackedStringArray("cursed", "defense")
+estimated_reward = 460
+estimated_risk_cost = 150
+
 [resource]
 script = ExtResource("1_def")
 id = &"broken_chalice"
-display_name = "깨진 성배"
+actual_name = "깨진 성배"
 description = "소유자가 다음 치명 피해를 받을 때 1회 무효. 발동 후 제거."
-public_label = "미확인 의식 물품"
-public_role_group = "보호"
-public_risk_range = "낮음"
-public_value_range = "중간"
-public_trigger_timing = "조건부"
-public_target_type = "소유자"
-category = &"protection"
-base_value = 650
+public_name = "금이 간 의식용 잔"
+category = &"ownership"
+risk_tier = &"medium"
+risk_range = "낮음~중간"
+value_tier = &"medium"
+value_range = "중간"
+trigger_timing = "조건부"
+target_type = "소유자"
+tags = PackedStringArray("ownership", "defense", "lethal_prevention", "cursed", "rare", "unique")
+public_clues = Array[ExtResource("3_clue")]([SubResource("Clue_role"), SubResource("Clue_risk"), SubResource("Clue_value"), SubResource("Clue_timing"), SubResource("Clue_target")])
+hidden_clues = Array[ExtResource("3_clue")]([SubResource("Clue_hidden_guard"), SubResource("Clue_hidden_consume"), SubResource("Clue_hidden_uncertain")])
 starting_bid = 250
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_guard")])

@@ -1,41 +1,65 @@
 extends Control
 
 @onready var controller: GameFlowController = $GameFlowController
-@onready var round_label: Label = %RoundLabel
-@onready var phase_label: Label = %PhaseLabel
-@onready var actors_label: RichTextLabel = %ActorsLabel
-@onready var card_name_label: Label = %CardNameLabel
-@onready var card_description_label: Label = %CardDescriptionLabel
-@onready var bid_info_label: Label = %BidInfoLabel
-@onready var turn_label: Label = %TurnLabel
+@onready var top_hud: TopHud = %TopHud
+@onready var participant_panel: ParticipantPanel = %ParticipantPanel
+@onready var card_info_panel: CardInfoPanel = %CardInfoPanel
+@onready var reaction_panel: ReactionPanel = %ReactionPanel
+@onready var auction_panel: AuctionPanel = %AuctionPanel
+@onready var post_auction_panel: PostAuctionPanel = %PostAuctionPanel
+@onready var judgment_panel: JudgmentPanel = %JudgmentPanel
+@onready var result_panel: RunResultPanel = %RunResultPanel
+@onready var debug_drawer: DebugDrawer = %DebugPanel
+@onready var action_bar: PanelContainer = %ActionBar
+@onready var action_hint: Label = %ActionHint
 @onready var bid_button: Button = %BidButton
 @onready var pass_button: Button = %PassButton
+@onready var investigate_button: Button = %InvestigateButton
 @onready var advance_button: Button = %AdvanceButton
-@onready var seed_input: LineEdit = %SeedInput
-@onready var new_run_button: Button = %NewRunButton
-@onready var debug_toggle: CheckButton = %DebugToggle
-@onready var debug_panel: PanelContainer = %DebugPanel
-@onready var debug_log: RichTextLabel = %DebugLog
-@onready var result_panel: PanelContainer = %ResultPanel
-@onready var result_label: Label = %ResultLabel
 
 var _debug_lines: PackedStringArray = []
+var _resolution_lines: PackedStringArray = []
 var _debug_mode: bool = false
 
 func _ready() -> void:
-	seed_input.text = str(GameConstants.DEFAULT_SEED)
+	$Backdrop.modulate = UiPalette.with_alpha(UiPalette.MUTED, 0.09)
+	$Shade.color = UiPalette.with_alpha(UiPalette.BACKGROUND, 0.90)
 	bid_button.pressed.connect(_on_bid_pressed)
 	pass_button.pressed.connect(_on_pass_pressed)
+	investigate_button.pressed.connect(_on_investigate_pressed)
 	advance_button.pressed.connect(_on_advance_pressed)
-	new_run_button.pressed.connect(_on_new_run_pressed)
-	debug_toggle.toggled.connect(_on_debug_toggled)
-	seed_input.text_submitted.connect(_on_seed_submitted)
+	top_hud.debug_toggled.connect(set_debug_mode)
+	top_hud.new_run_requested.connect(_start_new_run)
+	debug_drawer.close_requested.connect(func() -> void: set_debug_mode(false))
+	result_panel.same_seed_requested.connect(_restart_same_seed)
+	result_panel.new_seed_requested.connect(_restart_new_seed)
+	_connect_events()
+	top_hud.set_seed(GameConstants.DEFAULT_SEED)
+	_start_new_run(GameConstants.DEFAULT_SEED)
+
+func _connect_events() -> void:
 	controller.events.state_updated.connect(_refresh)
 	controller.events.debug_logged.connect(_append_debug_log)
-	controller.events.run_finished.connect(_on_run_finished)
-	controller.start_new_run(_seed_value())
-	set_debug_mode(false)
+	controller.events.round_started.connect(_on_round_started)
+	controller.events.card_effect_triggered.connect(_on_card_effect_triggered)
+	controller.events.card_consumed.connect(_on_card_consumed)
+	controller.events.damage_applied.connect(_on_damage_applied)
+	controller.events.gold_changed.connect(_on_gold_changed)
+	controller.events.actor_died.connect(_on_actor_died)
+
+func _start_new_run(seed_value: int) -> void:
+	_debug_lines.clear()
+	_resolution_lines.clear()
+	top_hud.set_seed(seed_value)
+	controller.start_new_run(seed_value)
 	_refresh()
+
+func _restart_same_seed() -> void:
+	_start_new_run(controller.run_state.rng_seed)
+
+func _restart_new_seed() -> void:
+	var seed_value: int = int(Time.get_unix_time_from_system()) & 0x7FFFFFFF
+	_start_new_run(seed_value)
 
 func _on_bid_pressed() -> void:
 	controller.request_player_bid()
@@ -45,181 +69,174 @@ func _on_pass_pressed() -> void:
 	controller.request_player_pass()
 	_refresh()
 
+func _on_investigate_pressed() -> void:
+	controller.request_investigate()
+	_refresh()
+
 func _on_advance_pressed() -> void:
 	controller.request_advance()
 	_refresh()
-
-func _on_new_run_pressed() -> void:
-	_debug_lines.clear()
-	debug_log.text = ""
-	controller.start_new_run(_seed_value())
-	_refresh()
-
-func _on_seed_submitted(_new_text: String) -> void:
-	_on_new_run_pressed()
-
-func _on_debug_toggled(enabled: bool) -> void:
-	set_debug_mode(enabled)
 
 func set_debug_mode(enabled: bool) -> void:
 	_debug_mode = enabled
 	if not is_node_ready():
 		return
-	if debug_toggle.button_pressed != enabled:
-		debug_toggle.set_pressed_no_signal(enabled)
-	debug_panel.visible = enabled
+	debug_drawer.visible = enabled
 	_refresh()
 
 func is_debug_mode() -> bool:
 	return _debug_mode
 
-func _on_run_finished(victory: bool, reason: String) -> void:
-	result_panel.visible = true
-	result_label.text = "%s\n%s" % ["승리" if victory else "패배", reason]
-	result_label.modulate = Color("d8b56c") if victory else Color("c9675b")
+func restart_same_seed() -> void:
+	_restart_same_seed()
+
+func refresh_ui() -> void:
+	_refresh()
 
 func _refresh() -> void:
 	if controller == null or controller.run_state == null:
 		return
 	var run: RunState = controller.run_state
-	round_label.text = "ROUND  %02d / %02d" % [run.current_round, GameConstants.TOTAL_ROUNDS]
-	phase_label.text = GameConstants.phase_name(run.current_phase)
-	if run.current_card != null:
-		_update_card_information(run.current_card, run.current_phase)
-		var highest_name: String = "없음"
-		if not run.highest_bidder_id.is_empty():
-			var highest: ActorState = controller.actor_by_id(run.highest_bidder_id)
-			if highest != null:
-				highest_name = highest.display_name
-		var current_bid_text: String = "입찰 없음"
-		if not run.highest_bidder_id.is_empty():
-			current_bid_text = "%d G" % run.current_bid
-		bid_info_label.text = (
-			"시작가  %d G\n현재가  %s\n최고 입찰자  %s\n최소 인상  %d G"
-			% [run.current_card.starting_bid, current_bid_text, highest_name, run.current_min_increment]
-		)
-	else:
-		card_name_label.text = "카드 준비 중"
-		card_description_label.text = ""
-		bid_info_label.text = ""
-	_update_actor_panel()
-	_update_turn_and_buttons()
-	result_panel.visible = run.current_phase == GameConstants.Phase.RUN_RESULT
-	if result_panel.visible:
-		result_label.text = "%s\n%s" % ["승리" if run.victory else "패배", run.result_reason]
-		result_label.modulate = Color("d8b56c") if run.victory else Color("c9675b")
-
-func _update_actor_panel() -> void:
-	var blocks: PackedStringArray = []
-	for actor: ActorState in controller.actors:
-		var status: String = "생존" if actor.alive else "사망"
-		var pass_status: String = " · PASS" if actor.has_passed and actor.alive else ""
-		var actor_color: String = "d8b56c" if actor.actor_type == GameConstants.ActorType.PLAYER else "c7c0ad"
-		if not actor.alive:
-			actor_color = "6f6962"
-		blocks.append(
-			"[color=#%s][font_size=19][b]%s[/b][/font_size][/color]  %s%s\n"
-			% [actor_color, actor.display_name, status, pass_status]
-			+ "HP  %d / %d    GOLD  %d\n" % [actor.hp, actor.max_hp, actor.gold]
-			+ "CARD  %s" % actor.owned_card_names(
-				_debug_mode or not _is_concealed_phase(controller.run_state.current_phase),
-				_debug_mode
-			)
-		)
-	actors_label.text = "\n\n".join(blocks)
-
-func _update_card_information(card: CardDefinition, phase: int) -> void:
+	top_hud.render(run, _debug_mode)
+	participant_panel.render(controller, _debug_mode)
+	card_info_panel.render(
+		run.current_card,
+		controller.player_knowledge(),
+		_debug_mode,
+		controller.debug_effect_report()
+	)
+	reaction_panel.render(controller)
+	auction_panel.render(controller)
+	post_auction_panel.render(controller)
+	judgment_panel.render(run.current_phase, _resolution_lines, controller.actors)
+	result_panel.render(controller, _debug_mode)
+	_update_phase_visibility(run.current_phase)
+	_update_action_bar(run.current_phase)
+	debug_drawer.visible = _debug_mode
 	if _debug_mode:
-		card_name_label.text = "%s  [ID: %s]" % [card.display_name, card.id]
-		card_description_label.text = _full_debug_description(card)
-		return
-	if _is_concealed_phase(phase):
-		card_name_label.text = card.public_label
-	else:
-		card_name_label.text = card.display_name
-	card_description_label.text = _public_clue_description(card)
+		debug_drawer.render(controller.debug_information_report(), _debug_lines)
 
-func _public_clue_description(card: CardDefinition) -> String:
-	return (
-		"역할군: %s\n위험도: %s\n예상 가치: %s\n발동 시점: %s\n대상: %s"
+func _update_phase_visibility(phase: int) -> void:
+	var is_pre_info: bool = phase == GameConstants.Phase.PRE_INFO
+	var is_auction: bool = phase == GameConstants.Phase.AUCTION
+	var is_post: bool = phase == GameConstants.Phase.POST_AUCTION
+	var is_resolution: bool = phase == GameConstants.Phase.JUDGMENT or phase == GameConstants.Phase.ROUND_END
+	var is_result: bool = phase == GameConstants.Phase.RUN_RESULT
+	card_info_panel.visible = is_pre_info or is_auction
+	auction_panel.visible = is_auction
+	post_auction_panel.visible = is_post
+	judgment_panel.visible = is_resolution
+	result_panel.visible = is_result
+	reaction_panel.visible = is_pre_info or is_auction
+	participant_panel.visible = not is_result
+	action_bar.visible = not is_result
+
+func _update_action_bar(phase: int) -> void:
+	var run: RunState = controller.run_state
+	var is_pre_info: bool = phase == GameConstants.Phase.PRE_INFO
+	var is_auction: bool = phase == GameConstants.Phase.AUCTION
+	investigate_button.visible = is_pre_info
+	advance_button.visible = is_pre_info or phase in [
+		GameConstants.Phase.POST_AUCTION,
+		GameConstants.Phase.JUDGMENT,
+		GameConstants.Phase.ROUND_END,
+	]
+	bid_button.visible = is_auction
+	pass_button.visible = is_auction
+	investigate_button.disabled = not controller.can_investigate()
+	bid_button.disabled = not controller.can_player_bid()
+	pass_button.disabled = not controller.can_player_pass()
+	if is_pre_info:
+		investigate_button.text = "추가 조사 · INFO %d" % run.player_info_tokens
+		advance_button.text = "경매 시작"
+		action_hint.text = "공개 단서와 NPC 반응을 확인한 뒤 조사 여부를 결정하세요."
+	elif is_auction:
+		var required_bid: int = controller.current_required_bid()
+		bid_button.text = (
+			"첫 입찰 %d G" % required_bid
+			if run.highest_bidder_id.is_empty()
+			else "%d G로 입찰" % required_bid
+		)
+		action_hint.text = auction_panel.action_guidance(controller)
+	elif phase == GameConstants.Phase.POST_AUCTION:
+		advance_button.text = "심판으로"
+		action_hint.text = "낙찰 결과를 확인하고 심판 단계로 진행하세요."
+	elif phase == GameConstants.Phase.JUDGMENT:
+		advance_button.text = "라운드 정산"
+		action_hint.text = "심판 결과를 확인한 뒤 라운드 종료 효과를 처리하세요."
+	elif phase == GameConstants.Phase.ROUND_END:
+		advance_button.text = "다음 라운드"
+		action_hint.text = "이번 라운드 요약을 확인하고 다음 라운드로 진행하세요."
+
+func _append_debug_log(message: String) -> void:
+	_debug_lines.append("[%03d] %s" % [_debug_lines.size() + 1, message])
+	while _debug_lines.size() > 200:
+		_debug_lines.remove_at(0)
+	if _debug_mode:
+		debug_drawer.render(controller.debug_information_report(), _debug_lines)
+
+func _on_round_started(_round_number: int, _card_id: StringName) -> void:
+	_resolution_lines.clear()
+
+func _on_card_effect_triggered(
+	card_id: StringName,
+	_effect_type: int,
+	target_ids: Array[StringName]
+) -> void:
+	var definition: CardDefinition = CardCatalog.by_id(card_id)
+	var target_names: PackedStringArray = []
+	for target_id: StringName in target_ids:
+		var target: ActorState = controller.actor_by_id(target_id)
+		target_names.append(target.display_name if target != null else String(target_id))
+	_resolution_lines.append(
+		"[color=#%s][b]%s 발동[/b][/color] → %s"
 		% [
-			card.public_role_group,
-			card.public_risk_range,
-			card.public_value_range,
-			card.public_trigger_timing,
-			card.public_target_type,
+			UiPalette.bbcode(UiPalette.GOLD_BRIGHT),
+			definition.actual_name if definition != null else card_id,
+			", ".join(target_names),
 		]
 	)
 
-func _full_debug_description(card: CardDefinition) -> String:
-	var lines: PackedStringArray = [card.description, "", "전체 효과"]
-	for effect: CardEffectDefinition in card.effects:
-		lines.append("• %s" % effect.description)
-	return "\n".join(lines)
+func _on_card_consumed(card_id: StringName, owner_id: StringName) -> void:
+	var definition: CardDefinition = CardCatalog.by_id(card_id)
+	var owner: ActorState = controller.actor_by_id(owner_id)
+	_resolution_lines.append(
+		"%s 소모 · %s"
+		% [definition.actual_name if definition != null else card_id, owner.display_name if owner != null else owner_id]
+	)
 
-func _is_concealed_phase(phase: int) -> bool:
-	return phase == GameConstants.Phase.PRE_INFO or phase == GameConstants.Phase.AUCTION
+func _on_damage_applied(actor_id: StringName, amount: int, source_card_id: StringName) -> void:
+	if not _is_resolution_phase() and source_card_id.is_empty():
+		return
+	var actor: ActorState = controller.actor_by_id(actor_id)
+	_resolution_lines.append(
+		"[color=#%s]%s  -%d HP[/color]"
+		% [UiPalette.bbcode(UiPalette.DANGER), actor.display_name if actor != null else actor_id, amount]
+	)
 
-func _update_turn_and_buttons() -> void:
-	var phase: int = controller.run_state.current_phase
-	var turn_actor_id: StringName = controller.current_turn_actor_id()
-	if phase == GameConstants.Phase.AUCTION:
-		var turn_actor: ActorState = controller.actor_by_id(turn_actor_id)
-		turn_label.text = "현재 차례: %s" % (turn_actor.display_name if turn_actor != null else "정산 중")
-	else:
-		turn_label.text = _phase_guidance(phase)
-	var required_bid: int = controller.current_required_bid()
-	var has_no_bid: bool = controller.run_state.highest_bidder_id.is_empty()
-	if (
-		has_no_bid
-		and controller.run_state.current_card != null
-		and (phase == GameConstants.Phase.PRE_INFO or phase == GameConstants.Phase.AUCTION)
-	):
-		bid_button.text = "첫 입찰 %d G" % controller.run_state.current_card.starting_bid
-	else:
-		bid_button.text = "입찰 %d G" % required_bid if required_bid > 0 else "입찰"
-	bid_button.disabled = not controller.can_player_bid()
-	pass_button.disabled = not controller.can_player_pass()
-	advance_button.disabled = phase == GameConstants.Phase.AUCTION or phase == GameConstants.Phase.RUN_RESULT
-	advance_button.text = _advance_button_text(phase)
+func _on_gold_changed(
+	actor_id: StringName,
+	delta: int,
+	_new_total: int,
+	source_card_id: StringName
+) -> void:
+	if not _is_resolution_phase() and source_card_id.is_empty():
+		return
+	var actor: ActorState = controller.actor_by_id(actor_id)
+	_resolution_lines.append(
+		"%s  %s%d G"
+		% [actor.display_name if actor != null else actor_id, "+" if delta >= 0 else "", delta]
+	)
 
-func _phase_guidance(phase: int) -> String:
-	match phase:
-		GameConstants.Phase.PRE_INFO:
-			return "출품 정보를 확인하고 경매를 시작하세요."
-		GameConstants.Phase.POST_AUCTION:
-			return "낙찰 정산 완료. 심판 단계로 진행하세요."
-		GameConstants.Phase.JUDGMENT:
-			return "심판 효과 처리 완료. 라운드를 마감하세요."
-		GameConstants.Phase.ROUND_END:
-			return "라운드 종료. 다음 출품으로 진행하세요."
-		GameConstants.Phase.RUN_RESULT:
-			return "게임이 종료되었습니다."
-		_:
-			return "게임 준비 중"
+func _on_actor_died(actor_id: StringName) -> void:
+	var actor: ActorState = controller.actor_by_id(actor_id)
+	_resolution_lines.append(
+		"[color=#%s][b]%s 사망[/b][/color]"
+		% [UiPalette.bbcode(UiPalette.DANGER), actor.display_name if actor != null else actor_id]
+	)
 
-func _advance_button_text(phase: int) -> String:
-	match phase:
-		GameConstants.Phase.PRE_INFO:
-			return "경매 시작"
-		GameConstants.Phase.POST_AUCTION:
-			return "심판 진행"
-		GameConstants.Phase.JUDGMENT:
-			return "라운드 종료"
-		GameConstants.Phase.ROUND_END:
-			return "다음 라운드"
-		_:
-			return "다음 단계"
-
-func _append_debug_log(message: String) -> void:
-	_debug_lines.append("[%02d] %s" % [_debug_lines.size() + 1, message])
-	while _debug_lines.size() > 160:
-		_debug_lines.remove_at(0)
-	debug_log.text = "\n".join(_debug_lines)
-	debug_log.scroll_to_line(maxi(0, _debug_lines.size() - 1))
-
-func _seed_value() -> int:
-	if seed_input.text.strip_edges().is_valid_int():
-		return int(seed_input.text.strip_edges())
-	seed_input.text = str(GameConstants.DEFAULT_SEED)
-	return GameConstants.DEFAULT_SEED
+func _is_resolution_phase() -> bool:
+	return controller.run_state.current_phase in [
+		GameConstants.Phase.JUDGMENT,
+		GameConstants.Phase.ROUND_END,
+	]

@@ -1,0 +1,51 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/debug_drawer.gd" id="1"]
+
+[node name="DebugPanel" type="PanelContainer"]
+custom_minimum_size = Vector2(440, 0)
+script = ExtResource("1")
+
+[node name="Column" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="Column"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Column/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"GoldLabel"
+theme_override_font_sizes/font_size = 18
+text = "DEBUG DRAWER"
+
+[node name="CloseButton" type="Button" parent="Column/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(70, 34)
+layout_mode = 2
+text = "닫기"
+
+[node name="InspectorTitle" type="Label" parent="Column"]
+layout_mode = 2
+text = "실제 정보 / 지식 / NPC 평가"
+
+[node name="DebugInspector" type="RichTextLabel" parent="Column"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+text = "DEBUG INSPECTOR"
+scroll_active = true
+
+[node name="LogTitle" type="Label" parent="Column"]
+layout_mode = 2
+text = "이벤트 로그"
+
+[node name="DebugLog" type="RichTextLabel" parent="Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 190)
+layout_mode = 2
+text = "DEBUG LOG"
+scroll_active = true
+scroll_following = true
