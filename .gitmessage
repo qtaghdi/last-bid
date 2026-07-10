@@ -1,0 +1,13 @@
+# <type>(<scope>): <imperative summary>
+#
+# Recommended types:
+# feat, fix, docs, refactor, test, perf, build, ci, chore, revert
+#
+# Preferred scopes:
+# flow, auction, cards, ai, knowledge, ui, data, tests, docs, repo, release
+#
+# Keep the summary in English imperative form, lowercase, and under 72 chars.
+# Explain why in the body when the summary is not enough.
+#
+# Refs: #123
+# BREAKING CHANGE: describe incompatible behavior when applicable
