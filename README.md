@@ -65,9 +65,27 @@
 
 ---
 
+## 실행 방법
+
+Godot 4.7 stable에서 프로젝트를 열거나 다음 명령으로 실행합니다.
+
+```bash
+godot --path .
+```
+
+macOS에서 `godot`이 PATH에 없다면:
+
+```bash
+/Applications/Godot.app/Contents/MacOS/Godot --path .
+```
+
+메인 씬은 `scenes/main.tscn`이며 기본 해상도는 1280×720입니다.
+
+---
+
 ## 현재 개발 상태
 
-현재 프로젝트는 **Milestone 2** 단계입니다.
+현재 안정 기준선은 **Milestone 2.5 UX Prototype 구현 완료** 상태입니다. 다음 마일스톤의 세부 범위는 구현 전에 별도 기획으로 확정합니다.
 
 ### Milestone 1 완료
 
@@ -89,9 +107,9 @@
 - 디버그 로그
 - 기본 카드 6종
 
-### Milestone 2 개발 중
+### Milestone 2 구현 완료
 
-현재는 LAST BID의 핵심인 정보 비대칭과 NPC 성향을 구현하고 있습니다.
+LAST BID의 핵심인 정보 비대칭과 NPC 성향을 검증할 수 있는 규칙 계층을 구현했습니다.
 
 - 실제 카드 정보와 공개 단서 분리
 - 플레이어와 NPC별 지식 상태
@@ -102,11 +120,84 @@
 - 도박사의 제한적인 허세 입찰
 - 같은 시드에서 정보 배분과 AI 행동 재현
 
+구현 구조:
+
+- `CardDefinition`: 실제 이름·위험/가치·효과와 공개/숨김 단서 분리
+- `CardClueDefinition`: 단서 텍스트, 관련 태그, 주관적 보상/위험 추정치
+- `KnowledgeState`: 참가자별 알려진 단서, 믿음, 신뢰도, 공개 수준
+- `InformationService`: 기본 단서 배분과 정보 토큰 조사
+- `SimpleNpcAi`: 자신이 아는 단서만 사용하는 아키타입 평가와 최대 입찰가
+- `NpcDialogueService`: 같은 시드에서 재현되는 상황별 대사
+- DEBUG Drawer: 실제 카드, 모든 단서, 참가자 지식, NPC 평가와 허세 상태
+
+### Milestone 2.5 UX Prototype 구현 완료
+
+최종 아트 전에 전체 플레이 흐름과 정보 위계를 검증할 수 있는 Control/Container 기반 와이어프레임을 구현했습니다.
+
+- 공통 HUD: 라운드, 사용자용 단계명, Seed, 정보 토큰, DEBUG 토글
+- 참가자 패널: HP, 골드, 공개 보유 카드, 생존/패스/최고 입찰자/현재 차례, NPC 최근 대사
+- PRE_INFO: 공개 출품명과 플레이어가 아는 구조화 단서, 추가 조사 결과 강조, NPC 첫 반응
+- AUCTION: 시작가, 현재가, 다음 입찰가, 최고 입찰자, 현재 차례, 최소 인상폭, 행동 불가 안내
+- POST_AUCTION: 낙찰 결과와 Milestone 3의 개봉/보관/판매/소각 자리
+- JUDGMENT / ROUND_END: 실제 발동 카드, 대상, HP·골드 변화, 사망·소모와 생존자 요약
+- RUN_RESULT: 최종 상태와 같은 Seed/새 Seed 재시작
+- DEBUG Drawer: 실제 카드 정보, 모든 단서, 참가자별 지식, NPC 평가·최대 입찰·허세, RNG Seed와 로그
+- 공통 `wireframe_theme.tres`와 `UiPalette`로 어두운 회색·금색·적색·아이보리 팔레트 관리
+
+UI는 액션을 `GameFlowController`에 전달하고 상태와 이벤트만 읽습니다. 단계 전환 권한과 게임 규칙, 결정론적 RNG 순서는 기존 컨트롤러와 시스템에 유지됩니다.
+
+주요 UI 서브씬:
+
+```text
+scenes/ui/
+  top_hud.tscn
+  participant_panel.tscn
+  card_info_panel.tscn
+  reaction_panel.tscn
+  auction_panel.tscn
+  post_auction_panel.tscn
+  judgment_panel.tscn
+  result_panel.tscn
+  debug_drawer.tscn
+```
+
+### 검증
+
+자동 검증:
+
+```bash
+godot --headless --path . -s res://tests/test_runner.gd
+```
+
+Milestone 1·2 회귀 테스트와 함께 단계별 패널 가시성, 일반 UI 정보 은닉, DEBUG 전용 실제 효과, 조사 결과 표시, 입찰 버튼 상태, 최고 입찰자 표시, 심판 요약, 동일 Seed 재시작, 1280×720 최소 레이아웃과 1920×1080 루트 확장을 포함해 `281 assertions`를 검증합니다.
+
+수동 UX 검증 절차:
+
+1. 프로젝트를 실행하고 1280×720에서 PRE_INFO의 참가자·카드·NPC 반응·하단 액션이 한 화면에 들어오는지 확인합니다.
+2. `추가 조사` 후 금색 `◆ 새 조사 단서`가 카드 패널에 나타나고 INFO가 감소하는지 확인합니다.
+3. 경매를 시작해 `입찰 없음`, `첫 입찰 N G`, 현재 차례와 입찰 불가 안내가 즉시 갱신되는지 확인합니다.
+4. 패스 후 POST_AUCTION → JUDGMENT → ROUND_END로 진행하며 단계별 패널과 결과 요약을 확인합니다.
+5. DEBUG를 열어 실제 정보가 Drawer 안에서만 보이는지 확인합니다.
+6. 플레이어 사망 또는 10라운드 생존 후 결과 통계와 같은 Seed 재시작을 확인합니다.
+7. 창을 1920×1080으로 확대해 Anchor/Container 확장, 텍스트 줄바꿈, 패널 잘림 여부를 다시 확인합니다.
+
 ---
 
-## 이후 개발 예정
+## 개발 및 Git 워크플로
 
-다음 단계에서는 경매 이후의 선택과 참가자 간 상호작용을 확장할 예정입니다.
+저장소는 `main` 기반의 짧은 작업 브랜치와 Conventional Commits, Squash and merge를 사용합니다.
+
+- 브랜치: `feat/post-auction-actions`, `fix/auction-turn-lock`
+- 커밋·PR: `feat(ui): add phase-specific auction panels`
+- 자동화 브랜치: `codex/<type>-<short-description>`
+
+전체 브랜치·커밋·PR·릴리스 규칙은 [CONTRIBUTING.md](./CONTRIBUTING.md)를 따릅니다. PR 작성 시 저장소 템플릿의 테스트 및 결정론적 RNG 체크리스트를 완료해야 합니다.
+
+---
+
+## 다음 개발 후보
+
+다음 마일스톤에서는 경매 이후의 선택과 참가자 간 상호작용을 우선 검토합니다. 아래 항목은 확정 범위가 아니라 기획 후보입니다.
 
 - 낙찰 후 개봉, 보관, 판매, 소각
 - 참가자 간 거래와 협상
@@ -123,7 +214,7 @@
 
 ## 개발 환경
 
-- **Engine:** Godot 4.x
+- **Engine:** Godot 4.7 stable (`4.7.stable.official.5b4e0cb0f`)
 - **Language:** GDScript
 - **Platform:** Desktop
 

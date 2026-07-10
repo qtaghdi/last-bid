@@ -4,7 +4,7 @@
 
 **LAST BID** is a single-player auction mind-game built with Godot 4 and GDScript.
 
-The initial development target is a text-first Milestone 1 prototype that validates the core auction loop before visual polish, negotiation, bluffing, reputation, or content expansion.
+The current stable baseline is the completed Milestone 2.5 UX prototype: a playable Control/Container wireframe that presents the Milestone 1 and 2 systems without changing their rules or deterministic RNG behavior. The next milestone scope is not implied by this document and must be provided explicitly.
 
 Primary prototype goals:
 
@@ -18,10 +18,14 @@ Primary prototype goals:
 - Debug log
 - Win / loss result
 - Reproducible behavior from the same seed
+- Per-lot `KnowledgeState` for the player and each NPC
+- Two player information tokens and PRE_INFO investigation
+- Collector, creditor, and gambler subjective valuation
+- Deterministic NPC dialogue and limited gambler bluff bids
 
 ## Required Technology
 
-- Engine: Godot 4.x stable
+- Engine: Godot 4.7 stable (`4.7.stable.official.5b4e0cb0f`)
 - Language: GDScript
 - UI: Godot Control nodes and Containers
 - Data: Godot Resource preferred
@@ -40,9 +44,9 @@ Use the project-defined Godot 4 stable version.
 - Do not use beta, release candidate, dev, or nightly builds.
 - Avoid APIs unavailable in the selected Godot version.
 
-## Current Scope
+## Current Baseline — Milestone 2.5 UX Prototype
 
-Implement only Milestone 1 unless the user explicitly expands the scope.
+The items below are implemented and must remain working. Preserve this baseline unless the user explicitly requests a change. Do not infer or pre-build Milestone 3 features from the future placeholders in the UI.
 
 Included:
 
@@ -61,8 +65,19 @@ Included:
 - Actor death
 - Deterministic RNG
 - Debug logging
-- Basic temporary UI
+- Playable wireframe UI
 - Automated or headless tests where practical
+- Actual card data separated from public and hidden clues
+- Per-actor clue allocation and confidence
+- Player investigation with two information tokens
+- Archetype-specific NPC evaluation and maximum bids
+- Deterministic short NPC dialogue
+- One or two possible gambler bluff bids per auction
+- Phase-specific PRE_INFO, AUCTION, POST_AUCTION, JUDGMENT, ROUND_END, and RUN_RESULT panels
+- Shared top HUD, participant status cards, NPC reaction panel, and bottom action bar
+- A separate, default-closed debug drawer
+- Same-seed and new-seed restart actions
+- Responsive 16:9 desktop layout at 1280×720 and 1920×1080
 
 Excluded:
 
@@ -70,8 +85,7 @@ Excluded:
 - Promises and betrayal
 - Reputation
 - Card seals
-- Information tokens
-- Bluffing
+- Full bluffing systems beyond the gambler's limited auction bluff
 - Character jobs
 - Passive items
 - Shop
@@ -126,6 +140,8 @@ Do not place the whole game in one script.
 Do not hardcode each card directly inside UI scripts or phase-control code.
 
 Use reusable card definitions and effect commands.
+
+Card definitions must keep exact effects separate from public and hidden clues. Normal UI and NPC AI must not read exact effects. NPC evaluation accepts `KnowledgeState`, not `CardDefinition`.
 
 Minimum effect operations:
 
@@ -189,9 +205,9 @@ Auction rules:
 - If nobody bids, discard the card
 - Include a defensive limit against infinite auction loops
 
-## Initial Cards
+## Implemented Prototype Cards
 
-Implement these six cards for Milestone 1.
+These six Milestone 1 cards are implemented and covered by regression tests.
 
 ### Cursed Vault
 
@@ -223,47 +239,48 @@ At the next `JUDGMENT`:
 
 - On acquisition, owner gains 500 gold
 - After 2 rounds, charge 700 gold
-- If insufficient, deduct available gold and deal 1 damage per missing 200 gold
-- Define and document rounding behavior explicitly
+- If insufficient, deduct available gold and deal 1 damage for each started 200 gold of shortage
+- Shortage damage rounds up (`ceil(shortage / 200)`)
 
 ### Price Surge
 
 - Next round minimum raise becomes 150 gold
 - Restore it to 50 gold after that round ends
 
-## Suggested Project Structure
+## Current Project Structure
 
 ```text
 scenes/
-scripts/
-  core/
-  models/
-  cards/
-  ai/
+  main.tscn
   ui/
+scripts/
+  core/       # Game flow, auction, events, constants, central RNG
+  models/     # Run, actor, and knowledge state
+  cards/      # Card data types, catalog, instances, and effect resolution
+  ai/         # NPC evaluation, decisions, bluffing, and dialogue
+  knowledge/  # Per-actor clue distribution and investigation
+  ui/         # Presentation-only component scripts
 data/
-  cards/
-tests/
+  cards/      # Card Resource data
+tests/        # Headless regression runner
+themes/       # Shared UI Theme resources
 ```
 
-Suggested responsibilities:
+Key responsibilities:
 
 ```text
-scripts/core/game_flow_controller.gd
-scripts/core/rng_service.gd
-scripts/core/event_bus.gd
-scripts/core/auction_controller.gd
-scripts/core/effect_resolver.gd
-scripts/models/actor_state.gd
-scripts/models/run_state.gd
-scripts/models/card_definition.gd
-scripts/models/card_instance.gd
-scripts/ai/basic_npc_ai.gd
-scripts/ui/main_game_ui.gd
-tests/test_runner.gd
+scripts/core/game_flow_controller.gd  # Main phase authority and public actions
+scripts/core/auction_system.gd        # Bid/pass rules and settlement
+scripts/core/central_rng.gd           # Seeded gameplay randomness
+scripts/core/event_bus.gd             # Gameplay and presentation events
+scripts/cards/card_effect_system.gd   # Immediate and delayed effect resolution
+scripts/knowledge/information_service.gd
+scripts/ai/simple_npc_ai.gd
+scripts/ui/main_ui.gd                 # Phase-aware presentation orchestration
+tests/test_runner.gd                  # Deterministic headless regression suite
 ```
 
-Exact names may differ when the existing repository already defines a coherent structure. Prefer preserving good existing structure over renaming everything.
+Preserve these responsibility boundaries. Renaming or relocating them requires a concrete architectural reason and corresponding documentation updates.
 
 ## GDScript Style
 
@@ -297,23 +314,28 @@ Use signals or an event bus for gameplay notifications such as:
 - `auction_won`
 - `card_acquired`
 - `card_effect_triggered`
+- `card_consumed`
 - `damage_applied`
 - `gold_changed`
 - `actor_died`
 - `run_finished`
 - `debug_logged`
+- `knowledge_changed`
+- `information_tokens_changed`
+- `npc_evaluation_ready`
+- `npc_dialogue_spoken`
 
 Gameplay systems must not directly perform UI animations.
 
 ## UI Rules
 
-Milestone 1 UI is temporary but must be usable.
+The Milestone 2.5 UI is the current playable UX baseline and must remain usable without reading the debug log.
 
 Display:
 
 - Round
 - Current phase
-- Current card name and description
+- Public lot name and player-known structured clues
 - Starting bid
 - Current bid
 - Highest bidder
@@ -325,10 +347,19 @@ Display:
 - Debug log
 - Seed
 - Win / loss result
+- Player-known clue subset and information-token count
+- PRE_INFO investigation action
+- NPC recent dialogue and auction status
+- Debug-only actual information, knowledge, evaluation, maximum bid, and bluff state
+- Phase-specific panels that hide actions unavailable in the current phase
+- A judgment summary with triggered cards, targets, HP/gold changes, deaths, and consumed cards
+- Result statistics with same-seed and new-seed restart actions
 
 Use `Container` nodes so the layout does not immediately break at another desktop resolution.
 
-Do not spend time on final pixel-art presentation during Milestone 1.
+Keep palette and interactive states in a shared Theme or UI palette rather than scattering colors through scripts and scenes.
+
+Treat the wireframe as non-production presentation. Do not add final pixel art, audio, or elaborate animation unless explicitly requested.
 
 ## Testing
 
@@ -357,6 +388,15 @@ Tests should cover at minimum:
 - Player death produces loss
 - Round 10 survival produces victory
 - Auction cannot enter an infinite loop
+- Same seed produces the same clue allocation, dialogue, and bluff intent
+- Investigation consumes exactly one token and never duplicates clues
+- NPC AI does not accept `CardDefinition` or access `effects`
+- Each archetype values its preferred known tags more highly
+- PRE_INFO and AUCTION show only their valid actions and normal UI never exposes exact card data
+- Player-turn, passed, insufficient-gold, and zero-information-token disabled states
+- Investigated clues, highest bidder, judgment summary, phase panel visibility, and same-seed restart
+- The combined minimum layout fits the 1280×720 content area
+- The root UI expands in a 1920×1080 viewport
 
 When an automated test is impractical, document a deterministic manual verification procedure in `README.md`.
 
@@ -377,7 +417,17 @@ If Godot is unavailable in the environment, report that clearly and provide the 
 
 ## Git Rules
 
-Do not commit generated Godot cache files.
+Read and follow `CONTRIBUTING.md` for the authoritative branch, commit, PR, merge, and release conventions.
+
+Required summary:
+
+- Keep `main` runnable and passing tests.
+- Work on a short-lived typed branch; automation uses `codex/<type>-<description>`.
+- Use `type(scope): imperative summary` Conventional Commits.
+- Prefer atomic commits and one purpose per PR.
+- Use Squash and merge by default and keep the squash title convention-compliant.
+- Do not rewrite a shared branch or force push without coordination.
+- Do not commit generated Godot cache files, secrets, or local-only artifacts.
 
 The repository `.gitignore` should normally include:
 
@@ -398,7 +448,7 @@ Keep changes scoped to the requested task.
 When beginning a task:
 
 1. Inspect the repository.
-2. Read this file and `README.md`.
+2. Read this file, `README.md`, and `CONTRIBUTING.md`.
 3. Identify the selected Godot version.
 4. Inspect existing scenes, autoloads, tests, and data models.
 5. Provide a brief implementation plan.
