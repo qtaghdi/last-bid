@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CardDefinition" load_steps=12 format=3]
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
 [ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
@@ -12,6 +12,22 @@ target_selector = 4
 amount = -2
 consume_after_trigger = true
 description = "다음 JUDGMENT에 가장 부유한 참가자 전원 체력 2 피해"
+
+[sub_resource type="Resource" id="Effect_accident"]
+script = ExtResource("2_effect")
+trigger = 4
+effect_type = 0
+target_selector = 3
+amount = -1
+description = "봉인이 끊어져 소유자 체력 1 피해"
+
+[sub_resource type="Resource" id="Effect_burn"]
+script = ExtResource("2_effect")
+trigger = 7
+effect_type = 0
+target_selector = 4
+amount = -1
+description = "소각 반동으로 가장 부유한 참가자 전원 체력 1 피해"
 
 [sub_resource type="Resource" id="Clue_role"]
 script = ExtResource("3_clue")
@@ -103,3 +119,9 @@ public_clues = Array[ExtResource("3_clue")]([SubResource("Clue_role"), SubResour
 hidden_clues = Array[ExtResource("3_clue")]([SubResource("Clue_hidden_rich"), SubResource("Clue_hidden_many"), SubResource("Clue_hidden_consume")])
 starting_bid = 300
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_judgment")])
+seal_reveal_texts = PackedStringArray("가장 부유한 참가자를 노린다", "다음 심판에 강한 피해를 주고 사라진다", "다음 심판에 부자 전원 체력 2 피해 후 소비")
+seal_accident_effect = SubResource("Effect_accident")
+effects_while_sealed = true
+transfer_policy = 0
+burn_cost = 150
+burn_effects = Array[ExtResource("2_effect")]([SubResource("Effect_burn")])

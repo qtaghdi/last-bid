@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CardDefinition" load_steps=13 format=3]
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
 [ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
@@ -21,6 +21,14 @@ amount = -2
 delay_rounds = 3
 nested_effect_type = 0
 description = "3라운드 후 소유자 체력 2 피해"
+
+[sub_resource type="Resource" id="Effect_accident_burn"]
+script = ExtResource("2_effect")
+trigger = 7
+effect_type = 0
+target_selector = 3
+amount = -1
+description = "저주가 새어 나와 소유자 체력 1 피해"
 
 [sub_resource type="Resource" id="Clue_role"]
 script = ExtResource("3_clue")
@@ -112,3 +120,9 @@ public_clues = Array[ExtResource("3_clue")]([SubResource("Clue_role"), SubResour
 hidden_clues = Array[ExtResource("3_clue")]([SubResource("Clue_hidden_income"), SubResource("Clue_hidden_cost"), SubResource("Clue_hidden_persist")])
 starting_bid = 200
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_income"), SubResource("Effect_curse")])
+seal_reveal_texts = PackedStringArray("대상은 현재 소유자다", "보유 중 반복 수익과 지연된 대가가 함께 존재한다", "매 라운드 +120 G, 3라운드 후 현재 소유자 체력 2 피해")
+seal_accident_effect = SubResource("Effect_accident_burn")
+effects_while_sealed = true
+transfer_policy = 0
+burn_cost = 150
+burn_effects = Array[ExtResource("2_effect")]([SubResource("Effect_accident_burn")])

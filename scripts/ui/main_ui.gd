@@ -33,6 +33,10 @@ func _ready() -> void:
 	debug_drawer.close_requested.connect(func() -> void: set_debug_mode(false))
 	result_panel.same_seed_requested.connect(_restart_same_seed)
 	result_panel.new_seed_requested.connect(_restart_new_seed)
+	post_auction_panel.open_requested.connect(_on_post_open_requested)
+	post_auction_panel.keep_requested.connect(_on_post_keep_requested)
+	post_auction_panel.burn_requested.connect(_on_post_burn_requested)
+	post_auction_panel.sale_requested.connect(_on_post_sale_requested)
 	_connect_events()
 	top_hud.set_seed(GameConstants.DEFAULT_SEED)
 	_start_new_run(GameConstants.DEFAULT_SEED)
@@ -46,6 +50,10 @@ func _connect_events() -> void:
 	controller.events.damage_applied.connect(_on_damage_applied)
 	controller.events.gold_changed.connect(_on_gold_changed)
 	controller.events.actor_died.connect(_on_actor_died)
+	controller.events.seal_accident_triggered.connect(_on_seal_accident_triggered)
+	controller.events.card_opened.connect(_on_post_card_opened)
+	controller.events.card_transferred.connect(_on_card_transferred)
+	controller.events.card_burned.connect(_on_card_burned)
 
 func _start_new_run(seed_value: int) -> void:
 	_debug_lines.clear()
@@ -75,6 +83,22 @@ func _on_investigate_pressed() -> void:
 
 func _on_advance_pressed() -> void:
 	controller.request_advance()
+	_refresh()
+
+func _on_post_open_requested() -> void:
+	controller.request_open_next_seal()
+	_refresh()
+
+func _on_post_keep_requested() -> void:
+	controller.request_keep_post_card()
+	_refresh()
+
+func _on_post_burn_requested() -> void:
+	controller.request_burn_post_card()
+	_refresh()
+
+func _on_post_sale_requested(buyer_id: StringName, price: int, clue_id: StringName) -> void:
+	controller.request_sell_post_card(buyer_id, price, clue_id)
 	_refresh()
 
 func set_debug_mode(enabled: bool) -> void:
@@ -146,6 +170,7 @@ func _update_action_bar(phase: int) -> void:
 	investigate_button.disabled = not controller.can_investigate()
 	bid_button.disabled = not controller.can_player_bid()
 	pass_button.disabled = not controller.can_player_pass()
+	advance_button.disabled = false
 	if is_pre_info:
 		investigate_button.text = "추가 조사 · INFO %d" % run.player_info_tokens
 		advance_button.text = "경매 시작"
@@ -160,7 +185,12 @@ func _update_action_bar(phase: int) -> void:
 		action_hint.text = auction_panel.action_guidance(controller)
 	elif phase == GameConstants.Phase.POST_AUCTION:
 		advance_button.text = "심판으로"
-		action_hint.text = "낙찰 결과를 확인하고 심판 단계로 진행하세요."
+		advance_button.disabled = not controller.can_advance_post_auction()
+		action_hint.text = (
+			"낙찰 후 처리가 완료되었습니다. 심판으로 진행하세요."
+			if controller.can_advance_post_auction()
+			else controller.post_action_block_reason()
+		)
 	elif phase == GameConstants.Phase.JUDGMENT:
 		advance_button.text = "라운드 정산"
 		action_hint.text = "심판 결과를 확인한 뒤 라운드 종료 효과를 처리하세요."
@@ -184,6 +214,16 @@ func _on_card_effect_triggered(
 	target_ids: Array[StringName]
 ) -> void:
 	var definition: CardDefinition = CardCatalog.by_id(card_id)
+	var visible_card_name: String = definition.actual_name if definition != null else String(card_id)
+	var post_instance: CardInstance = controller.current_post_instance()
+	if (
+		controller.run_state.current_phase == GameConstants.Phase.POST_AUCTION
+		and post_instance != null
+		and post_instance.definition_id == card_id
+		and post_instance.reveal_level != GameConstants.RevealLevel.FULLY_REVEALED
+		and definition != null
+	):
+		visible_card_name = definition.public_name
 	var target_names: PackedStringArray = []
 	for target_id: StringName in target_ids:
 		var target: ActorState = controller.actor_by_id(target_id)
@@ -192,7 +232,7 @@ func _on_card_effect_triggered(
 		"[color=#%s][b]%s 발동[/b][/color] → %s"
 		% [
 			UiPalette.bbcode(UiPalette.GOLD_BRIGHT),
-			definition.actual_name if definition != null else card_id,
+			visible_card_name,
 			", ".join(target_names),
 		]
 	)
@@ -233,6 +273,49 @@ func _on_actor_died(actor_id: StringName) -> void:
 	_resolution_lines.append(
 		"[color=#%s][b]%s 사망[/b][/color]"
 		% [UiPalette.bbcode(UiPalette.DANGER), actor.display_name if actor != null else actor_id]
+	)
+
+func _on_seal_accident_triggered(
+	_instance_id: StringName,
+	seal_number: int,
+	result_text: String
+) -> void:
+	_resolution_lines.append(
+		"[color=#%s][b]봉인 %d 사고[/b][/color] · %s"
+		% [UiPalette.bbcode(UiPalette.DANGER), seal_number, result_text]
+	)
+
+func _on_post_card_opened(_instance_id: StringName, owner_id: StringName) -> void:
+	var owner: ActorState = controller.actor_by_id(owner_id)
+	var definition: CardDefinition = controller.run_state.current_card
+	_resolution_lines.append(
+		"[color=#%s][b]%s 완전 개봉[/b][/color] · %s"
+		% [
+			UiPalette.bbcode(UiPalette.GOLD_BRIGHT),
+			definition.actual_name if definition != null else "카드",
+			owner.display_name if owner != null else owner_id,
+		]
+	)
+
+func _on_card_transferred(
+	_instance_id: StringName,
+	from_id: StringName,
+	to_id: StringName
+) -> void:
+	var from_actor: ActorState = controller.actor_by_id(from_id)
+	var to_actor: ActorState = controller.actor_by_id(to_id)
+	_resolution_lines.append(
+		"소유권 이전 · %s → %s"
+		% [
+			from_actor.display_name if from_actor != null else from_id,
+			to_actor.display_name if to_actor != null else to_id,
+		]
+	)
+
+func _on_card_burned(_instance_id: StringName, former_owner_id: StringName) -> void:
+	var owner: ActorState = controller.actor_by_id(former_owner_id)
+	_resolution_lines.append(
+		"카드 소각 · %s" % [owner.display_name if owner != null else former_owner_id]
 	)
 
 func _is_resolution_phase() -> bool:

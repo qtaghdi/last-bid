@@ -17,3 +17,11 @@ extends Resource
 @export var hidden_clues: Array[CardClueDefinition] = []
 @export var starting_bid: int = 0
 @export var effects: Array[CardEffectDefinition] = []
+@export var seal_reveal_texts: PackedStringArray = []
+@export var seal_accident_effect: CardEffectDefinition
+@export var effects_while_sealed: bool = false
+@export var transferable: bool = true
+@export var transfer_policy: int = GameConstants.TransferPolicy.FOLLOW_CURRENT_OWNER
+@export var burnable: bool = true
+@export var burn_cost: int = 100
+@export var burn_effects: Array[CardEffectDefinition] = []

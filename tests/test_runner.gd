@@ -24,6 +24,14 @@ func _run_all() -> void:
 	_test_blood_loan_repayment()
 	_test_price_surge_restores()
 	_test_tied_targets_all_resolve()
+	_test_post_auction_requires_resolution()
+	_test_post_auction_ui_actions()
+	_test_seal_probabilities_and_opening()
+	_test_seal_accident_determinism()
+	_test_sealed_inventory_limit()
+	_test_sale_and_transfer_guards()
+	_test_burn_and_delayed_transfer_policies()
+	_test_npc_post_auction_determinism()
 	_test_player_death_is_defeat()
 	_test_round_ten_survival_is_victory()
 	_test_twenty_simulations_finish()
@@ -171,8 +179,12 @@ func _test_card_information_visibility() -> void:
 	_assert_true(not judgment_panel.visible and not result_panel.visible, "POST_AUCTION에서 이후 단계 패널 숨김")
 	_assert_true(advance_button.visible and not bid_button.visible and not pass_button.visible, "POST_AUCTION에서 심판 진행만 활성")
 	var post_text: String = (post_panel.get_node("%ResultLabel") as Label).text
-	_assert_true(post_text.contains(card.public_name), "낙찰 결과에 공개 출품명 표시")
-	_assert_true(not post_text.contains(card.actual_name), "POST_AUCTION 일반 UI에서 실제 이름 숨김")
+	var post_instance: CardInstance = controller.current_post_instance()
+	if post_instance != null and post_instance.reveal_level == GameConstants.RevealLevel.FULLY_REVEALED:
+		_assert_true(post_text.contains(card.actual_name), "완전 개봉된 낙찰 결과에 실제 이름 표시")
+	else:
+		_assert_true(post_text.contains(card.public_name), "봉인된 낙찰 결과에 공개 출품명 표시")
+		_assert_true(not post_text.contains(card.actual_name), "봉인된 POST_AUCTION에서 실제 이름 숨김")
 	_assert_true(not debug_panel.visible, "DEBUG 해제 시 로그 패널 숨김")
 
 	controller.request_advance()
@@ -453,6 +465,7 @@ func _test_broken_chalice_guard() -> void:
 	var actors: Array[ActorState] = context["actors"]
 	var player: ActorState = actors[0]
 	var chalice: CardInstance = effects.acquire_card(CardCatalog.by_id(&"broken_chalice"), player, actors)
+	effects.open_card(chalice, player, actors)
 	_assert_equal(effects.apply_damage(player, 3, &"test"), 0, "깨진 성배가 치명 피해를 무효화")
 	_assert_equal(player.hp, 3, "치명 피해 무효 후 체력 유지")
 	_assert_true(chalice.consumed, "깨진 성배가 발동 후 소모됨")
@@ -482,8 +495,10 @@ func _test_blood_loan_repayment() -> void:
 	var effects: CardEffectSystem = context["effects"]
 	var actors: Array[ActorState] = context["actors"]
 	var player: ActorState = actors[0]
-	effects.acquire_card(CardCatalog.by_id(&"blood_loan"), player, actors)
-	_assert_equal(player.gold, 1300, "피의 대출 낙찰 즉시 +500골드")
+	var loan: CardInstance = effects.acquire_card(CardCatalog.by_id(&"blood_loan"), player, actors)
+	_assert_equal(player.gold, 800, "피의 대출 낙찰만으로 골드가 증가하지 않음")
+	effects.open_card(loan, player, actors)
+	_assert_equal(player.gold, 1300, "피의 대출 개봉 시 +500골드")
 	player.gold = 100
 	effects.process_trigger(GameConstants.EffectTrigger.ROUND_END, actors)
 	_assert_equal(player.gold, 100, "피의 대출 첫 ROUND_END에는 상환하지 않음")
@@ -496,7 +511,13 @@ func _test_blood_loan_repayment() -> void:
 func _test_price_surge_restores() -> void:
 	var controller: GameFlowController = _new_controller(123)
 	var player: ActorState = controller.actor_by_id(GameConstants.PLAYER_ID)
-	controller.effects.acquire_card(CardCatalog.by_id(&"price_surge"), player, controller.actors)
+	var surge: CardInstance = controller.effects.acquire_card(
+		CardCatalog.by_id(&"price_surge"),
+		player,
+		controller.actors
+	)
+	_assert_true(controller.run_state.active_global_effects.is_empty(), "가격 폭주는 낙찰만으로 발동하지 않음")
+	controller.effects.open_card(surge, player, controller.actors)
 	var affected_round: int = controller.run_state.current_round + 1
 	_assert_equal(
 		int(controller.run_state.active_global_effects[&"min_increment_value"]),
@@ -531,6 +552,320 @@ func _test_tied_targets_all_resolve() -> void:
 		_assert_equal(actor.gold, 880, "부유함 동률 대상 %s에게 +80" % actor.actor_id)
 		_assert_equal(actor.hp, 2, "가난함 동률 대상 %s에게 피해" % actor.actor_id)
 	(context["events"] as EventBus).free()
+
+func _test_post_auction_requires_resolution() -> void:
+	var controller: GameFlowController = _new_controller(9001)
+	var instance: CardInstance = _prepare_post_card(controller, &"blood_loan", GameConstants.PLAYER_ID)
+	var player: ActorState = controller.actor_by_id(GameConstants.PLAYER_ID)
+	_assert_equal(controller.run_state.current_phase, GameConstants.Phase.POST_AUCTION, "플레이어 낙찰 후 POST_AUCTION 진입")
+	_assert_true(instance.sealed, "낙찰 카드는 기본 봉인 상태")
+	_assert_true(not instance.post_auction_resolved, "낙찰 직후 처리는 미완료")
+	_assert_true(instance.reveal_level != GameConstants.RevealLevel.FULLY_REVEALED, "낙찰만으로 완전 공개되지 않음")
+	_assert_equal(player.gold, GameConstants.STARTING_GOLD, "낙찰 등록만으로 ON_OPEN 효과가 실행되지 않음")
+	_assert_true(not controller.can_advance_post_auction(), "처리 완료 전 심판 진행 불가")
+	controller.request_advance()
+	_assert_equal(controller.run_state.current_phase, GameConstants.Phase.POST_AUCTION, "미처리 상태에서 단계 이동 거부")
+	_assert_true(controller.request_keep_post_card(), "현재 봉인 상태로 보관 가능")
+	_assert_true(instance.post_auction_resolved, "보관 후 처리 완료")
+	_assert_true(not controller.request_keep_post_card(), "같은 카드 POST_AUCTION 처리는 한 번만 가능")
+	_assert_true(controller.can_advance_post_auction(), "처리 완료 후 심판 진행 가능")
+	controller.request_advance()
+	_assert_equal(controller.run_state.current_phase, GameConstants.Phase.JUDGMENT, "완료 후 JUDGMENT 진입")
+	controller.free()
+
+func _test_post_auction_ui_actions() -> void:
+	var packed_scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
+	var ui: Control = packed_scene.instantiate() as Control
+	root.add_child(ui)
+	var controller: GameFlowController = ui.get_node("GameFlowController") as GameFlowController
+	var post_panel: PostAuctionPanel = ui.get_node("%PostAuctionPanel") as PostAuctionPanel
+	var advance_button: Button = ui.get_node("%AdvanceButton") as Button
+	var open_button: Button = post_panel.get_node("%OpenButton") as Button
+	var keep_button: Button = post_panel.get_node("%KeepButton") as Button
+	var instance: CardInstance = _prepare_post_card(controller, &"broken_chalice", GameConstants.PLAYER_ID)
+	ui.refresh_ui()
+	_assert_true(post_panel.visible, "플레이어 낙찰 시 POST_AUCTION 패널 표시")
+	_assert_true(open_button.visible and keep_button.visible, "플레이어 낙찰 후 개봉·보관 액션 표시")
+	_assert_true(open_button.text.contains("사고"), "개봉 전에 다음 봉인 사고 확률 표시")
+	_assert_true(advance_button.disabled, "낙찰 후 처리 전 계속 버튼 비활성")
+	_assert_true(post_panel.displayed_text().contains(controller.run_state.current_card.public_name), "봉인 상태에서 public_name 표시")
+	_assert_true(not post_panel.displayed_text().contains(controller.run_state.current_card.actual_name), "봉인 상태에서 actual_name 숨김")
+	controller.request_open_next_seal()
+	ui.refresh_ui()
+	_assert_equal(instance.opened_seals, 1, "UI 액션 후 봉인 1개 개봉")
+	_assert_true(post_panel.displayed_text().contains("봉인 1"), "개봉 결과를 POST_AUCTION UI에 직접 표시")
+	while controller.can_open_next_seal():
+		controller.request_open_next_seal()
+	ui.refresh_ui()
+	_assert_true(post_panel.displayed_text().contains(controller.run_state.current_card.actual_name), "완전 공개 후 actual_name 표시")
+	_assert_true(post_panel.displayed_text().contains(controller.run_state.current_card.description), "완전 공개 후 정확한 효과 표시")
+	_assert_true(controller.request_keep_post_card(), "완전 개봉 카드 보관")
+	ui.refresh_ui()
+	_assert_true(not advance_button.disabled, "POST_AUCTION 처리 후 계속 버튼 활성")
+	ui.free()
+
+func _test_seal_probabilities_and_opening() -> void:
+	var expected: Dictionary = {
+		&"low": [0, 5, 10],
+		&"medium": [0, 10, 20],
+		&"high": [5, 20, 35],
+	}
+	for risk: StringName in expected:
+		for seal_index: int in range(GameConstants.MAX_SEALS):
+			_assert_equal(
+				PostAuctionSystem.accident_percent(risk, seal_index + 1),
+				expected[risk][seal_index],
+				"%s 위험도 봉인 %d 사고 확률" % [risk, seal_index + 1]
+			)
+	var controller: GameFlowController = _new_controller(9002)
+	var instance: CardInstance = _prepare_post_card(controller, &"broken_chalice", GameConstants.PLAYER_ID)
+	var player: ActorState = controller.actor_by_id(GameConstants.PLAYER_ID)
+	for seal_number: int in range(1, GameConstants.MAX_SEALS + 1):
+		_assert_true(controller.request_open_next_seal(), "봉인 %d 순차 개봉" % seal_number)
+		_assert_equal(instance.opened_seals, seal_number, "열린 봉인 수 %d 기록" % seal_number)
+	_assert_true(not instance.sealed, "세 번째 봉인 후 sealed 해제")
+	_assert_equal(instance.reveal_level, GameConstants.RevealLevel.FULLY_REVEALED, "세 번째 봉인 후 완전 공개")
+	_assert_equal(controller.player_knowledge().reveal_level, GameConstants.RevealLevel.FULLY_REVEALED, "플레이어 지식도 완전 공개")
+	_assert_true(not controller.can_open_next_seal(), "세 번째 봉인 이후 추가 개봉 불가")
+	_assert_equal(controller.effects.apply_damage(player, player.hp, &"seal_test"), 0, "개봉된 깨진 성배가 치명 피해 방어")
+	_assert_true(instance.consumed, "개봉 효과 사용 후 성배 소비")
+	controller.free()
+
+func _test_seal_accident_determinism() -> void:
+	var selected_seed: int = -1
+	var first_trace: Dictionary = {}
+	for seed_value: int in range(1, 80):
+		var candidate: Dictionary = _seal_trace(seed_value)
+		if bool(candidate["had_accident"]):
+			selected_seed = seed_value
+			first_trace = candidate
+			break
+	_assert_true(selected_seed >= 0, "고위험 봉인 사고가 발생하는 테스트 Seed 발견")
+	if selected_seed >= 0:
+		var second_trace: Dictionary = _seal_trace(selected_seed)
+		_assert_equal(first_trace["trace"], second_trace["trace"], "같은 Seed의 봉인 사고 순서 재현")
+		_assert_equal(first_trace["hp"], second_trace["hp"], "같은 Seed의 사고 피해 재현")
+	var lethal_seed: int = -1
+	for seed_value: int in range(1, 80):
+		var lethal_controller: GameFlowController = _new_controller(seed_value)
+		_prepare_post_card(lethal_controller, &"golden_gallows", GameConstants.PLAYER_ID)
+		lethal_controller.actor_by_id(GameConstants.PLAYER_ID).hp = 1
+		while lethal_controller.can_open_next_seal() and not lethal_controller.run_state.finished:
+			lethal_controller.request_open_next_seal()
+		if lethal_controller.run_state.finished:
+			lethal_seed = seed_value
+			_assert_true(not lethal_controller.run_state.victory, "봉인 사고 사망은 즉시 패배")
+			_assert_equal(lethal_controller.run_state.result_reason, "플레이어 사망", "사고 사망 패배 사유 기록")
+			lethal_controller.free()
+			break
+		lethal_controller.free()
+	_assert_true(lethal_seed >= 0, "봉인 사고 사망 검증 Seed 발견")
+
+func _test_sealed_inventory_limit() -> void:
+	var controller: GameFlowController = _new_controller(9003)
+	var player: ActorState = controller.actor_by_id(GameConstants.PLAYER_ID)
+	controller.effects.acquire_card(CardCatalog.by_id(&"cursed_vault"), player, controller.actors)
+	controller.effects.acquire_card(CardCatalog.by_id(&"black_ledger"), player, controller.actors)
+	controller.effects.acquire_card(CardCatalog.by_id(&"golden_gallows"), player, controller.actors)
+	var current: CardInstance = _prepare_post_card(controller, &"broken_chalice", GameConstants.PLAYER_ID)
+	_assert_equal(player.sealed_card_count(), 4, "새 낙찰 직후 봉인 카드가 임시로 한도 초과 가능")
+	_assert_true(not controller.can_keep_post_card(), "봉인 카드 3장 보유 시 추가 보관 불가")
+	_assert_true(not controller.request_keep_post_card(), "한도 초과 보관 요청 거부")
+	while controller.can_open_next_seal():
+		controller.request_open_next_seal()
+	_assert_true(not current.sealed, "현재 카드를 완전 개봉해 봉인 한도에서 제외")
+	_assert_equal(player.sealed_card_count(), 3, "완전 개봉 후 봉인 카드 수 복구")
+	_assert_true(controller.request_keep_post_card(), "공간 확보 후 보관 가능")
+	controller.free()
+
+func _test_sale_and_transfer_guards() -> void:
+	var controller: GameFlowController = _new_controller(9004)
+	var instance: CardInstance = _prepare_post_card(controller, &"cursed_vault", GameConstants.PLAYER_ID)
+	var player: ActorState = controller.actor_by_id(GameConstants.PLAYER_ID)
+	var buyer: ActorState = controller.actor_by_id(&"npc_1")
+	buyer.alive = false
+	_assert_true(not controller.request_sell_post_card(buyer.actor_id, 50, &""), "사망 NPC 판매 거부")
+	_assert_true(not instance.sale_attempted, "유효하지 않은 대상은 판매 기회 미소모")
+	buyer.alive = true
+	buyer.gold = 0
+	_assert_true(not controller.request_sell_post_card(buyer.actor_id, 50, &""), "골드 부족 NPC 판매 거부")
+	buyer.gold = GameConstants.STARTING_GOLD
+	var remaining_before: int = instance.remaining_turns
+	var player_gold_before: int = player.gold
+	var buyer_gold_before: int = buyer.gold
+	var clue_id: StringName = controller.player_knowledge().known_clue_ids[0]
+	_assert_true(controller.request_sell_post_card(buyer.actor_id, 50, clue_id), "유효한 NPC 판매 제안 수락")
+	_assert_equal(instance.owner_id, buyer.actor_id, "판매 성공 시 owner_id 변경")
+	_assert_equal(instance.remaining_turns, remaining_before, "판매 후 remaining_turns 유지")
+	_assert_equal(instance.transfer_history.size(), 1, "판매 이전 이력 기록")
+	_assert_equal(player.gold, player_gold_before + 50, "판매자가 제안 가격 수령")
+	_assert_equal(buyer.gold, buyer_gold_before - 50, "구매자가 제안 가격 지불")
+	_assert_true(controller.knowledge_for(buyer.actor_id).knows(clue_id), "판매 시 선택한 단서가 구매자 지식에 추가")
+	_assert_true(player.instance_by_id(instance.instance_id) == null, "기존 인벤토리에서 이전 카드 제거")
+	_assert_true(buyer.instance_by_id(instance.instance_id) == instance, "새 인벤토리에 같은 instance_id 추가")
+	_assert_true(not controller.request_sell_post_card(buyer.actor_id, 50, clue_id), "한 POST_AUCTION에서 판매 제안 반복 불가")
+	controller.free()
+
+	var rejected: GameFlowController = _new_controller(9005)
+	var rejected_instance: CardInstance = _prepare_post_card(rejected, &"black_ledger", GameConstants.PLAYER_ID)
+	var rejected_buyer: ActorState = rejected.actor_by_id(&"npc_2")
+	_assert_true(not rejected.request_sell_post_card(rejected_buyer.actor_id, 800, &""), "평가 기준 미달 판매 제안 거절")
+	_assert_true(rejected_instance.sale_attempted, "거절된 제안도 1회 제한 소모")
+	_assert_equal(rejected_instance.owner_id, GameConstants.PLAYER_ID, "판매 거절 시 소유권 유지")
+	_assert_true(not rejected.can_sell_post_card(), "판매 거절 후 재제안 불가")
+	rejected.free()
+
+	var nontransferable: GameFlowController = _new_controller(9006)
+	_prepare_post_card(nontransferable, &"price_surge", GameConstants.PLAYER_ID)
+	_assert_true(not nontransferable.can_sell_post_card(), "transferable=false 카드는 판매 불가")
+	nontransferable.free()
+
+func _test_burn_and_delayed_transfer_policies() -> void:
+	var insufficient: GameFlowController = _new_controller(9006)
+	_prepare_post_card(insufficient, &"cursed_vault", GameConstants.PLAYER_ID)
+	insufficient.actor_by_id(GameConstants.PLAYER_ID).gold = 0
+	_assert_true(not insufficient.can_burn_post_card(), "골드 부족 시 소각 불가")
+	_assert_true(not insufficient.request_burn_post_card(), "골드 부족 소각 요청 거부")
+	insufficient.free()
+
+	var burn_controller: GameFlowController = _new_controller(9007)
+	var vault: CardInstance = _prepare_post_card(burn_controller, &"cursed_vault", GameConstants.PLAYER_ID)
+	var burn_player: ActorState = burn_controller.actor_by_id(GameConstants.PLAYER_ID)
+	var gold_before: int = burn_player.gold
+	_assert_true(burn_controller.request_burn_post_card(), "저주받은 금고 소각 성공")
+	_assert_equal(burn_player.gold, gold_before - 150, "소각 비용 차감")
+	_assert_equal(burn_player.hp, 2, "금고 burn_effect 체력 피해")
+	_assert_true(vault.destroyed and vault.consumed, "소각 카드를 destroyed/consumed 처리")
+	_assert_true(burn_player.instance_by_id(vault.instance_id) == null, "소각 카드 인벤토리 제거")
+	burn_controller.free()
+
+	var follow_context: Dictionary = _effect_context(9011)
+	var follow_effects: CardEffectSystem = follow_context["effects"]
+	var follow_actors: Array[ActorState] = follow_context["actors"]
+	var first_owner: ActorState = follow_actors[0]
+	var next_owner: ActorState = follow_actors[1]
+	var follow_vault: CardInstance = follow_effects.acquire_card(
+		CardCatalog.by_id(&"cursed_vault"),
+		first_owner,
+		follow_actors
+	)
+	follow_effects.process_trigger(GameConstants.EffectTrigger.ROUND_END, follow_actors)
+	var follow_remaining: int = follow_vault.remaining_turns
+	_assert_true(follow_effects.transfer_instance(follow_vault, first_owner, next_owner, follow_actors), "FOLLOW_CURRENT_OWNER 카드 이전 성공")
+	_assert_equal(follow_vault.effect_owner_id, next_owner.actor_id, "FOLLOW_CURRENT_OWNER 대상이 새 소유자로 변경")
+	_assert_equal(follow_vault.remaining_turns, follow_remaining, "FOLLOW_CURRENT_OWNER 이전 후 카운트 유지")
+	_assert_true(first_owner.instance_by_id(follow_vault.instance_id) == null, "FOLLOW 이전 후 기존 인벤토리 참조 제거")
+	_assert_true(next_owner.instance_by_id(follow_vault.instance_id) == follow_vault, "FOLLOW 이전 후 새 인벤토리에 단일 참조")
+	follow_effects.process_trigger(GameConstants.EffectTrigger.ROUND_END, follow_actors)
+	follow_effects.process_trigger(GameConstants.EffectTrigger.ROUND_END, follow_actors)
+	_assert_equal(first_owner.hp, 3, "FOLLOW 이전 후 기존 소유자는 지연 피해 제외")
+	_assert_equal(next_owner.hp, 1, "FOLLOW 이전 후 새 소유자가 지연 피해 대상")
+	var dead_target: ActorState = follow_actors[2]
+	dead_target.alive = false
+	var second_card: CardInstance = follow_effects.acquire_card(
+		CardCatalog.by_id(&"black_ledger"),
+		first_owner,
+		follow_actors
+	)
+	_assert_true(not follow_effects.transfer_instance(second_card, first_owner, dead_target, follow_actors), "사망 actor에게 카드 이전 불가")
+	(follow_context["events"] as EventBus).free()
+
+	var cancel_definition: CardDefinition = CardCatalog.by_id(&"blood_loan")
+	var original_policy: int = cancel_definition.transfer_policy
+	cancel_definition.transfer_policy = GameConstants.TransferPolicy.CANCEL_ON_TRANSFER
+	var cancel_context: Dictionary = _effect_context(9012)
+	var cancel_effects: CardEffectSystem = cancel_context["effects"]
+	var cancel_actors: Array[ActorState] = cancel_context["actors"]
+	var cancel_owner: ActorState = cancel_actors[0]
+	var cancel_buyer: ActorState = cancel_actors[1]
+	var cancel_loan: CardInstance = cancel_effects.acquire_card(cancel_definition, cancel_owner, cancel_actors)
+	cancel_effects.open_card(cancel_loan, cancel_owner, cancel_actors)
+	_assert_true(cancel_effects.transfer_instance(cancel_loan, cancel_owner, cancel_buyer, cancel_actors), "CANCEL_ON_TRANSFER 카드 이전 성공")
+	_assert_equal(cancel_loan.remaining_turns, 0, "CANCEL_ON_TRANSFER 지연 카운트 제거")
+	cancel_owner.gold = 100
+	cancel_effects.process_trigger(GameConstants.EffectTrigger.ROUND_END, cancel_actors)
+	cancel_effects.process_trigger(GameConstants.EffectTrigger.ROUND_END, cancel_actors)
+	_assert_equal(cancel_owner.gold, 100, "CANCEL_ON_TRANSFER 이후 예약 효과 미발동")
+	cancel_definition.transfer_policy = original_policy
+	(cancel_context["events"] as EventBus).free()
+
+	var trigger_definition: CardDefinition = CardCatalog.by_id(&"broken_chalice")
+	var trigger_policy: int = trigger_definition.transfer_policy
+	var transfer_effect: CardEffectDefinition = CardEffectDefinition.new()
+	transfer_effect.trigger = GameConstants.EffectTrigger.ON_TRANSFER
+	transfer_effect.effect_type = GameConstants.EffectType.MODIFY_GOLD
+	transfer_effect.target_selector = GameConstants.EffectType.SELECT_OWNER
+	transfer_effect.amount = 50
+	transfer_effect.description = "이전받은 소유자 골드 +50"
+	trigger_definition.transfer_policy = GameConstants.TransferPolicy.TRIGGER_ON_TRANSFER
+	trigger_definition.effects.append(transfer_effect)
+	var trigger_context: Dictionary = _effect_context(9013)
+	var trigger_effects: CardEffectSystem = trigger_context["effects"]
+	var trigger_actors: Array[ActorState] = trigger_context["actors"]
+	var trigger_owner: ActorState = trigger_actors[0]
+	var trigger_buyer: ActorState = trigger_actors[1]
+	var trigger_card: CardInstance = trigger_effects.acquire_card(trigger_definition, trigger_owner, trigger_actors)
+	_assert_true(trigger_effects.transfer_instance(trigger_card, trigger_owner, trigger_buyer, trigger_actors), "TRIGGER_ON_TRANSFER 카드 이전 성공")
+	_assert_equal(trigger_buyer.gold, GameConstants.STARTING_GOLD + 50, "TRIGGER_ON_TRANSFER 효과가 새 소유자에게 발동")
+	trigger_definition.effects.erase(transfer_effect)
+	trigger_definition.transfer_policy = trigger_policy
+	(trigger_context["events"] as EventBus).free()
+
+	var context: Dictionary = _effect_context(9008)
+	var effects: CardEffectSystem = context["effects"]
+	var actors: Array[ActorState] = context["actors"]
+	var debtor: ActorState = actors[0]
+	var buyer: ActorState = actors[1]
+	var loan: CardInstance = effects.acquire_card(CardCatalog.by_id(&"blood_loan"), debtor, actors)
+	effects.open_card(loan, debtor, actors)
+	var remaining_before: int = loan.remaining_turns
+	_assert_true(effects.transfer_instance(loan, debtor, buyer, actors), "피의 대출 이전 성공")
+	_assert_equal(loan.remaining_turns, remaining_before, "이전 후 지연 카운트 유지")
+	_assert_equal(loan.effect_owner_id, debtor.actor_id, "STAY_WITH_ORIGINAL_OWNER 채무자 고정")
+	debtor.gold = 100
+	effects.process_trigger(GameConstants.EffectTrigger.ROUND_END, actors)
+	effects.process_trigger(GameConstants.EffectTrigger.ROUND_END, actors)
+	_assert_equal(debtor.gold, 0, "이전 후 원래 개봉자가 상환")
+	_assert_equal(buyer.gold, GameConstants.STARTING_GOLD, "새 소유자는 고정 채무에서 제외")
+	_assert_equal(loan.transfer_history.size(), 1, "직접 이전도 transfer_history 기록")
+	(context["events"] as EventBus).free()
+
+	var detached_context: Dictionary = _effect_context(9009)
+	var detached_effects: CardEffectSystem = detached_context["effects"]
+	var detached_actors: Array[ActorState] = detached_context["actors"]
+	var detached_debtor: ActorState = detached_actors[0]
+	var detached_loan: CardInstance = detached_effects.acquire_card(
+		CardCatalog.by_id(&"blood_loan"),
+		detached_debtor,
+		detached_actors
+	)
+	detached_effects.open_card(detached_loan, detached_debtor, detached_actors)
+	_assert_true(detached_effects.burn_instance(detached_loan, detached_debtor, detached_actors), "개봉된 피의 대출 소각 성공")
+	_assert_equal((detached_context["run_state"] as RunState).detached_instances.size(), 1, "소각 후 고정 채무를 detached 상태로 유지")
+	detached_debtor.gold = 100
+	detached_effects.process_trigger(GameConstants.EffectTrigger.ROUND_END, detached_actors)
+	detached_effects.process_trigger(GameConstants.EffectTrigger.ROUND_END, detached_actors)
+	_assert_equal(detached_debtor.gold, 0, "소각해도 원래 개봉자의 상환 의무 유지")
+	(detached_context["events"] as EventBus).free()
+
+func _test_npc_post_auction_determinism() -> void:
+	var first: Dictionary = _npc_post_trace(9010, &"golden_gallows", &"npc_3")
+	var second: Dictionary = _npc_post_trace(9010, &"golden_gallows", &"npc_3")
+	_assert_equal(first, second, "같은 Seed에서 NPC 낙찰 후 처리 재현")
+	_assert_true(bool(first["resolved"]), "NPC가 POST_AUCTION 처리를 자동 완료")
+
+	var ai: SimpleNpcAi = SimpleNpcAi.new()
+	var collector: ActorState = ActorState.create(&"collector", "수집가", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_COLLECTOR)
+	var creditor: ActorState = ActorState.create(&"creditor", "채권자", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_CREDITOR)
+	var gambler: ActorState = ActorState.create(&"gambler", "도박사", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_GAMBLER)
+	var collector_knowledge: KnowledgeState = _knowledge_with_clue(PackedStringArray(["rare", "ownership"]), 450, 180)
+	var creditor_knowledge: KnowledgeState = _knowledge_with_clue(PackedStringArray(["debt", "high_risk"]), 100, 600)
+	var gambler_knowledge: KnowledgeState = _knowledge_with_clue(PackedStringArray(["high_risk", "gamble"]), 450, 350)
+	_assert_equal(int(ai.choose_post_auction_action(collector, collector_knowledge, true, 3)["action"]), GameConstants.PostAuctionAction.KEEP, "수집가는 희귀·소유 카드 보관 선호")
+	_assert_equal(int(ai.choose_post_auction_action(creditor, creditor_knowledge, true, 3)["action"]), GameConstants.PostAuctionAction.BURN, "채권자는 고위험 손실 카드 소각 선호")
+	var gambler_choice: Dictionary = ai.choose_post_auction_action(gambler, gambler_knowledge, true, 3)
+	_assert_equal(int(gambler_choice["action"]), GameConstants.PostAuctionAction.OPEN, "도박사는 고위험 카드 개봉 선호")
+	_assert_equal(int(gambler_choice["seals_to_open"]), GameConstants.MAX_SEALS, "도박사는 세 번째 봉인까지 감수")
 
 func _test_player_death_is_defeat() -> void:
 	var controller: GameFlowController = _new_controller(303)
@@ -588,7 +923,16 @@ func _simulate_run(seed_value: int, capture_trace: bool) -> Dictionary:
 					controller.request_player_pass()
 				else:
 					break
-			GameConstants.Phase.POST_AUCTION, GameConstants.Phase.JUDGMENT, GameConstants.Phase.ROUND_END:
+			GameConstants.Phase.POST_AUCTION:
+				if not controller.can_advance_post_auction():
+					if not controller.request_keep_post_card():
+						while controller.can_open_next_seal() and not controller.run_state.finished:
+							controller.request_open_next_seal()
+						if not controller.run_state.finished:
+							controller.request_keep_post_card()
+				if not controller.run_state.finished:
+					controller.request_advance()
+			GameConstants.Phase.JUDGMENT, GameConstants.Phase.ROUND_END:
 				controller.request_advance()
 			_:
 				break
@@ -598,6 +942,65 @@ func _simulate_run(seed_value: int, capture_trace: bool) -> Dictionary:
 		"result": "%s:%s:%d" % [controller.run_state.victory, controller.run_state.result_reason, controller.run_state.current_round],
 		"finished": controller.run_state.finished,
 		"steps": steps,
+	}
+	controller.free()
+	return result
+
+func _prepare_post_card(
+	controller: GameFlowController,
+	card_id: StringName,
+	owner_id: StringName
+) -> CardInstance:
+	var definition: CardDefinition = CardCatalog.by_id(card_id)
+	var owner: ActorState = controller.actor_by_id(owner_id)
+	controller.run_state.current_card = definition
+	controller.run_state.current_lot_id = StringName("test_post_%s_%d" % [card_id, controller.run_state.current_round])
+	controller.run_state.current_bid = definition.starting_bid
+	controller.run_state.highest_bidder_id = owner_id
+	controller.knowledge_states = controller.information_service.distribute(
+		definition,
+		controller.run_state.current_lot_id,
+		controller.actors
+	)
+	controller.knowledge_by_lot[controller.run_state.current_lot_id] = controller.knowledge_states
+	var instance: CardInstance = controller.effects.acquire_card(definition, owner, controller.actors)
+	controller.run_state.current_phase = GameConstants.Phase.POST_AUCTION
+	controller.post_auction.begin(instance, controller.actors, controller.knowledge_states)
+	return instance
+
+func _seal_trace(seed_value: int) -> Dictionary:
+	var controller: GameFlowController = _new_controller(seed_value)
+	var instance: CardInstance = _prepare_post_card(controller, &"golden_gallows", GameConstants.PLAYER_ID)
+	var trace: Array[String] = []
+	var had_accident: bool = false
+	while controller.can_open_next_seal() and not controller.run_state.finished:
+		controller.request_open_next_seal()
+		var accident: bool = not controller.post_auction.last_accident_message.is_empty()
+		had_accident = had_accident or accident
+		trace.append("%d:%s:%d" % [instance.opened_seals, accident, controller.actor_by_id(GameConstants.PLAYER_ID).hp])
+	var result: Dictionary = {
+		"trace": trace,
+		"had_accident": had_accident,
+		"hp": controller.actor_by_id(GameConstants.PLAYER_ID).hp,
+	}
+	controller.free()
+	return result
+
+func _npc_post_trace(
+	seed_value: int,
+	card_id: StringName,
+	npc_id: StringName
+) -> Dictionary:
+	var controller: GameFlowController = _new_controller(seed_value)
+	var instance: CardInstance = _prepare_post_card(controller, card_id, npc_id)
+	var result: Dictionary = {
+		"decision": controller.post_auction.last_npc_decision.duplicate(true),
+		"opened_seals": instance.opened_seals,
+		"sealed": instance.sealed,
+		"destroyed": instance.destroyed,
+		"resolved": instance.post_auction_resolved,
+		"owner": instance.owner_id,
+		"message": controller.post_auction.last_result_message,
 	}
 	controller.free()
 	return result

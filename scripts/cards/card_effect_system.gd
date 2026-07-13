@@ -41,25 +41,144 @@ func acquire_card(
 
 func process_trigger(trigger: int, actors: Array[ActorState]) -> void:
 	var snapshot: Dictionary = _make_snapshot(actors)
-	for owner: ActorState in actors:
-		if not owner.alive:
+	for inventory_owner: ActorState in actors:
+		for instance: CardInstance in inventory_owner.inventory:
+			_process_instance_trigger(instance, inventory_owner, trigger, actors, snapshot, false)
+	for instance: CardInstance in _run_state.detached_instances:
+		if instance.pending_effects.is_empty():
 			continue
-		for instance: CardInstance in owner.inventory:
-			if not owner.alive:
-				break
-			if instance.consumed:
-				continue
-			var definition: CardDefinition = _definition_for(instance.definition_id)
-			if definition == null:
-				_events.log_debug("카드 효과 실패: 정의 없음 (%s)" % instance.definition_id)
-				continue
-			for index: int in range(definition.effects.size()):
-				if instance.consumed:
-					break
-				var effect: CardEffectDefinition = definition.effects[index]
-				if effect.trigger == trigger:
-					_process_effect(instance, definition, index, effect, owner, actors, snapshot)
+		var effect_owner: ActorState = _actor_by_id(instance.effect_owner_id, actors)
+		if effect_owner != null:
+			_process_instance_trigger(instance, effect_owner, trigger, actors, snapshot, true)
+	for index: int in range(_run_state.detached_instances.size() - 1, -1, -1):
+		if _run_state.detached_instances[index].pending_effects.is_empty():
+			_run_state.detached_instances.remove_at(index)
 	_events.state_updated.emit()
+
+func open_card(instance: CardInstance, opener: ActorState, actors: Array[ActorState]) -> void:
+	if instance == null or opener == null or instance.destroyed:
+		return
+	var definition: CardDefinition = _definition_for(instance.definition_id)
+	if definition == null:
+		return
+	instance.sealed = false
+	instance.reveal_level = GameConstants.RevealLevel.FULLY_REVEALED
+	if definition.transfer_policy == GameConstants.TransferPolicy.STAY_WITH_ORIGINAL_OWNER:
+		instance.effect_owner_id = opener.actor_id
+	else:
+		instance.effect_owner_id = instance.owner_id
+	for index: int in range(definition.effects.size()):
+		var effect: CardEffectDefinition = definition.effects[index]
+		if effect.effect_type == GameConstants.EffectType.DELAY_EFFECT and effect.requires_open:
+			instance.delay_counters[index] = effect.delay_rounds
+			instance.pending_effects[index] = true
+			instance.remaining_turns = maxi(instance.remaining_turns, effect.delay_rounds)
+	var snapshot: Dictionary = _make_snapshot(actors)
+	_process_instance_trigger(
+		instance,
+		opener,
+		GameConstants.EffectTrigger.ON_OPEN,
+		actors,
+		snapshot,
+		false
+	)
+	_events.state_updated.emit()
+
+func process_auxiliary_effect(
+	instance: CardInstance,
+	definition: CardDefinition,
+	effect: CardEffectDefinition,
+	source_actor: ActorState,
+	actors: Array[ActorState]
+) -> void:
+	if instance == null or definition == null or effect == null or source_actor == null:
+		return
+	_process_effect(instance, definition, -1, effect, source_actor, actors, _make_snapshot(actors))
+	_events.state_updated.emit()
+
+func transfer_instance(
+	instance: CardInstance,
+	from_actor: ActorState,
+	to_actor: ActorState,
+	actors: Array[ActorState]
+) -> bool:
+	if (
+		instance == null
+		or from_actor == null
+		or to_actor == null
+		or not from_actor.alive
+		or not to_actor.alive
+		or not instance.is_available()
+		or instance.owner_id != from_actor.actor_id
+	):
+		return false
+	var definition: CardDefinition = _definition_for(instance.definition_id)
+	if definition == null or not definition.transferable:
+		return false
+	if from_actor.remove_instance(instance.instance_id) == null:
+		return false
+	to_actor.inventory.append(instance)
+	var previous_owner: StringName = from_actor.actor_id
+	instance.record_transfer(previous_owner, to_actor.actor_id, _run_state.current_round)
+	match definition.transfer_policy:
+		GameConstants.TransferPolicy.FOLLOW_CURRENT_OWNER:
+			instance.effect_owner_id = to_actor.actor_id
+		GameConstants.TransferPolicy.CANCEL_ON_TRANSFER:
+			for index: int in range(definition.effects.size()):
+				if definition.effects[index].effect_type == GameConstants.EffectType.DELAY_EFFECT:
+					instance.resolved_effects[index] = true
+			instance.delay_counters.clear()
+			instance.pending_effects.clear()
+			instance.remaining_turns = 0
+		GameConstants.TransferPolicy.TRIGGER_ON_TRANSFER:
+			instance.effect_owner_id = to_actor.actor_id
+			_process_instance_trigger(
+				instance,
+				to_actor,
+				GameConstants.EffectTrigger.ON_TRANSFER,
+				actors,
+				_make_snapshot(actors),
+				false
+			)
+		GameConstants.TransferPolicy.STAY_WITH_ORIGINAL_OWNER:
+			pass
+	_events.card_transferred.emit(instance.instance_id, previous_owner, to_actor.actor_id)
+	_events.card_owner_changed.emit(instance.instance_id, to_actor.actor_id)
+	_events.log_debug(
+		"카드 이전: %s → %s (%s)"
+		% [from_actor.display_name, to_actor.display_name, definition.actual_name]
+	)
+	_events.state_updated.emit()
+	return true
+
+func burn_instance(instance: CardInstance, owner: ActorState, actors: Array[ActorState]) -> bool:
+	if instance == null or owner == null or instance.owner_id != owner.actor_id:
+		return false
+	var definition: CardDefinition = _definition_for(instance.definition_id)
+	if definition == null or not definition.burnable or owner.gold < definition.burn_cost:
+		return false
+	owner.gold -= definition.burn_cost
+	_events.gold_changed.emit(owner.actor_id, -definition.burn_cost, owner.gold, &"")
+	for burn_effect: CardEffectDefinition in definition.burn_effects:
+		process_auxiliary_effect(instance, definition, burn_effect, owner, actors)
+	owner.remove_instance(instance.instance_id)
+	var former_owner: StringName = owner.actor_id
+	instance.owner_id = &""
+	instance.destroyed = true
+	instance.consumed = true
+	if (
+		definition.transfer_policy == GameConstants.TransferPolicy.STAY_WITH_ORIGINAL_OWNER
+		and not instance.pending_effects.is_empty()
+	):
+		_run_state.detached_instances.append(instance)
+	else:
+		instance.delay_counters.clear()
+		instance.pending_effects.clear()
+		instance.remaining_turns = 0
+	_events.card_burned.emit(instance.instance_id, former_owner)
+	_events.log_debug("%s 소각: %s (-%d골드)" % [owner.display_name, definition.actual_name, definition.burn_cost])
+	_events.state_updated.emit()
+	return true
 
 func apply_damage(
 	target: ActorState,
@@ -105,6 +224,7 @@ func _process_effect(
 			_events.log_debug("%s 지연 효과: %d라운드 남음" % [definition.actual_name, remaining])
 			return
 		instance.resolved_effects[effect_index] = true
+		instance.pending_effects.erase(effect_index)
 		effective_type = effect.nested_effect_type
 
 	var targets: Array[ActorState] = _select_targets(effect.target_selector, owner, actors, snapshot)
@@ -172,6 +292,8 @@ func _consume_lethal_guard(target: ActorState) -> bool:
 		var definition: CardDefinition = _definition_for(instance.definition_id)
 		if definition == null:
 			continue
+		if instance.sealed and not definition.effects_while_sealed:
+			continue
 		for effect: CardEffectDefinition in definition.effects:
 			if (
 				effect.trigger == GameConstants.EffectTrigger.ON_LETHAL_DAMAGE
@@ -235,3 +357,54 @@ func _largest_remaining_delay(instance: CardInstance) -> int:
 
 func _definition_for(card_id: StringName) -> CardDefinition:
 	return _definitions.get(card_id) as CardDefinition
+
+func _process_instance_trigger(
+	instance: CardInstance,
+	inventory_owner: ActorState,
+	trigger: int,
+	actors: Array[ActorState],
+	snapshot: Dictionary,
+	allow_destroyed_pending: bool
+) -> void:
+	if instance == null or instance.consumed and not allow_destroyed_pending:
+		return
+	var definition: CardDefinition = _definition_for(instance.definition_id)
+	if definition == null:
+		_events.log_debug("카드 효과 실패: 정의 없음 (%s)" % instance.definition_id)
+		return
+	if (
+		instance.sealed
+		and not definition.effects_while_sealed
+		and trigger not in [GameConstants.EffectTrigger.ON_OPEN, GameConstants.EffectTrigger.ON_TRANSFER]
+	):
+		return
+	var effect_owner: ActorState = _effect_owner_for(instance, definition, inventory_owner, actors)
+	if effect_owner == null or not effect_owner.alive:
+		return
+	for index: int in range(definition.effects.size()):
+		if instance.consumed and not allow_destroyed_pending:
+			break
+		var effect: CardEffectDefinition = definition.effects[index]
+		if effect.trigger != trigger:
+			continue
+		if effect.requires_open and instance.sealed:
+			continue
+		if allow_destroyed_pending and not bool(instance.pending_effects.get(index, false)):
+			continue
+		_process_effect(instance, definition, index, effect, effect_owner, actors, snapshot)
+
+func _effect_owner_for(
+	instance: CardInstance,
+	definition: CardDefinition,
+	inventory_owner: ActorState,
+	actors: Array[ActorState]
+) -> ActorState:
+	if definition.transfer_policy == GameConstants.TransferPolicy.STAY_WITH_ORIGINAL_OWNER:
+		return _actor_by_id(instance.effect_owner_id, actors)
+	return inventory_owner
+
+func _actor_by_id(actor_id: StringName, actors: Array[ActorState]) -> ActorState:
+	for actor: ActorState in actors:
+		if actor.actor_id == actor_id:
+			return actor
+	return null

@@ -44,6 +44,24 @@ func can_investigate(state: KnowledgeState, card: CardDefinition) -> bool:
 			return true
 	return false
 
+func share_known_clue(
+	source: KnowledgeState,
+	target: KnowledgeState,
+	clue_id: StringName
+) -> bool:
+	if source == null or target == null or clue_id.is_empty() or target.knows(clue_id):
+		return false
+	for belief: Dictionary in source.believed_clues:
+		if belief.get("clue_id", &"") != clue_id:
+			continue
+		target.known_clue_ids.append(clue_id)
+		target.believed_clues.append(belief.duplicate(true))
+		target.confidence_by_clue[clue_id] = source.confidence_by_clue.get(clue_id, 0.75)
+		target.reveal_level = maxi(target.reveal_level, GameConstants.RevealLevel.BASIC_CLUES)
+		_events.knowledge_changed.emit(target.actor_id, target.card_instance_id)
+		return true
+	return false
+
 func _learn_random_clues(
 	state: KnowledgeState,
 	clues: Array[CardClueDefinition],
