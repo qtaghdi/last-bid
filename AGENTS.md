@@ -4,7 +4,7 @@
 
 **LAST BID** is a single-player auction mind-game built with Godot 4 and GDScript.
 
-The current stable baseline is the completed Milestone 2.5 UX prototype: a playable Control/Container wireframe that presents the Milestone 1 and 2 systems without changing their rules or deterministic RNG behavior. The next milestone scope is not implied by this document and must be provided explicitly.
+The current stable baseline is the completed Milestone 3 prototype. It adds post-auction choices, three sequential seals, deterministic seal accidents, inventory limits, sales, ownership transfer, burning, and NPC post-auction decisions to the Milestone 2.5 UX flow.
 
 Primary prototype goals:
 
@@ -22,6 +22,9 @@ Primary prototype goals:
 - Two player information tokens and PRE_INFO investigation
 - Collector, creditor, and gambler subjective valuation
 - Deterministic NPC dialogue and limited gambler bluff bids
+- Three seal levels and deterministic accident checks
+- Open, keep, sell, and burn post-auction actions
+- Transfer-aware delayed effects and a three-sealed-card inventory limit
 
 ## Required Technology
 
@@ -44,7 +47,7 @@ Use the project-defined Godot 4 stable version.
 - Do not use beta, release candidate, dev, or nightly builds.
 - Avoid APIs unavailable in the selected Godot version.
 
-## Current Baseline — Milestone 2.5 UX Prototype
+## Current Baseline — Milestone 3
 
 The items below are implemented and must remain working. Preserve this baseline unless the user explicitly requests a change. Do not infer or pre-build Milestone 3 features from the future placeholders in the UI.
 
@@ -78,13 +81,20 @@ Included:
 - A separate, default-closed debug drawer
 - Same-seed and new-seed restart actions
 - Responsive 16:9 desktop layout at 1280×720 and 1920×1080
+- A post-auction action must resolve before JUDGMENT can begin
+- Three sequential seals with data-driven reveal text and accident effects
+- Actual risk tier determines seal accident probability through the central RNG
+- Partial opening, sealed-card storage, and a three-card sealed inventory limit
+- One player sale proposal per post-auction with target, price, and disclosed clue
+- Card burning with cost, burn effects, and delayed-effect cancellation policy
+- Ownership transfer with stable instance IDs, history, and remaining counters
+- Deterministic collector, creditor, and gambler post-auction decisions
 
 Excluded:
 
 - Negotiation
 - Promises and betrayal
 - Reputation
-- Card seals
 - Full bluffing systems beyond the gambler's limited auction bluff
 - Character jobs
 - Passive items
@@ -157,6 +167,14 @@ Minimum effect operations:
 
 Complex special cases may use dedicated scripts only when a generic effect cannot express the rule clearly.
 
+### Card instances and post-auction state
+
+`CardInstance` owns per-copy mutable state such as owner, reveal level, opened seals, delay counters, transfer history, sealed/consumed state, and post-auction completion. `CardDefinition` remains immutable shared data.
+
+The UI must never mutate either resource directly. It sends actions to `GameFlowController`, which delegates post-auction rules to `PostAuctionSystem` and effect execution to `CardEffectSystem`.
+
+Auction settlement assigns ownership and charges the winning bid once. It must not fully reveal a card or execute `ON_OPEN`. A player-owned lot cannot advance from `POST_AUCTION` until one valid action resolves it. NPC-owned lots resolve through deterministic NPC policy and remain visible for review before advancing.
+
 ### Deterministic randomness
 
 All gameplay randomness must use one centrally managed seeded RNG.
@@ -213,10 +231,12 @@ These six Milestone 1 cards are implemented and covered by regression tests.
 
 - Owner gains 120 gold at each `ROUND_END`
 - After 3 rounds, owner takes 2 damage
+- Works while sealed and follows the current owner on transfer
+- Burning costs 150 gold and deals 1 damage to the burner
 
 ### Broken Chalice
 
-- Prevent the owner's next lethal damage once
+- After full opening, prevent the owner's next lethal damage once
 - Consume after triggering
 
 ### Black Ledger
@@ -228,24 +248,29 @@ At each `JUDGMENT`:
 
 Ties affect every tied actor.
 
+It works while sealed and follows the current owner.
+
 ### Golden Gallows
 
 At the next `JUDGMENT`:
 
 - Every richest living actor takes 2 damage
 - Consume after triggering
+- It works while sealed and follows the current owner
 
 ### Blood Loan
 
-- On acquisition, owner gains 500 gold
+- On full opening, opener gains 500 gold
 - After 2 rounds, charge 700 gold
 - If insufficient, deduct available gold and deal 1 damage for each started 200 gold of shortage
 - Shortage damage rounds up (`ceil(shortage / 200)`)
+- The opener remains the debtor after transfer or burning (`STAY_WITH_ORIGINAL_OWNER`)
 
 ### Price Surge
 
-- Next round minimum raise becomes 150 gold
+- On full opening, next round minimum raise becomes 150 gold
 - Restore it to 50 gold after that round ends
+- It is non-transferable and can be burned for removal
 
 ## Current Project Structure
 
@@ -273,6 +298,7 @@ scripts/core/game_flow_controller.gd  # Main phase authority and public actions
 scripts/core/auction_system.gd        # Bid/pass rules and settlement
 scripts/core/central_rng.gd           # Seeded gameplay randomness
 scripts/core/event_bus.gd             # Gameplay and presentation events
+scripts/core/post_auction_system.gd   # Seals, accidents, keep/sale/burn/transfer
 scripts/cards/card_effect_system.gd   # Immediate and delayed effect resolution
 scripts/knowledge/information_service.gd
 scripts/ai/simple_npc_ai.gd
@@ -324,12 +350,25 @@ Use signals or an event bus for gameplay notifications such as:
 - `information_tokens_changed`
 - `npc_evaluation_ready`
 - `npc_dialogue_spoken`
+- `post_auction_started`
+- `post_auction_completed`
+- `seal_opened`
+- `seal_accident_triggered`
+- `card_opened`
+- `card_kept`
+- `sale_proposed`
+- `sale_accepted`
+- `sale_rejected`
+- `card_transferred`
+- `card_burned`
+- `inventory_limit_reached`
+- `card_owner_changed`
 
 Gameplay systems must not directly perform UI animations.
 
 ## UI Rules
 
-The Milestone 2.5 UI is the current playable UX baseline and must remain usable without reading the debug log.
+The Milestone 3 UI is the current playable UX baseline and must remain usable without reading the debug log.
 
 Display:
 
@@ -354,6 +393,10 @@ Display:
 - Phase-specific panels that hide actions unavailable in the current phase
 - A judgment summary with triggered cards, targets, HP/gold changes, deaths, and consumed cards
 - Result statistics with same-seed and new-seed restart actions
+- Post-auction seal progress, next accident probability, owner, and sealed inventory usage
+- Open, keep, sell, and burn controls with disabled reasons
+- Sale target, price, and disclosed-clue selection
+- Exact identity and effects only after the third seal or in DEBUG
 
 Use `Container` nodes so the layout does not immediately break at another desktop resolution.
 
@@ -397,6 +440,12 @@ Tests should cover at minimum:
 - Investigated clues, highest bidder, judgment summary, phase panel visibility, and same-seed restart
 - The combined minimum layout fits the 1280×720 content area
 - The root UI expands in a 1920×1080 viewport
+- Post-auction cannot advance before resolution and executes only once
+- Seal percentages match the risk table and accidents replay with the same seed
+- Third-seal opening reveals exact information and executes `ON_OPEN`
+- Inventory, sale, burn, and all transfer-policy guards
+- NPC post-auction archetype preferences and deterministic decisions
+- Twenty seeded full runs finish without an infinite loop after post-auction actions
 
 When an automated test is impractical, document a deterministic manual verification procedure in `README.md`.
 

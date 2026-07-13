@@ -153,6 +153,95 @@ func is_bluffing(actor_id: StringName) -> bool:
 func has_bluff_intent(actor_id: StringName) -> bool:
 	return bool(bluff_intents.get(actor_id, false))
 
+func evaluate_purchase(
+	actor: ActorState,
+	knowledge: KnowledgeState,
+	inventory_tags: PackedStringArray,
+	actors: Array[ActorState],
+	current_round: int,
+	offered_price: int
+) -> Dictionary:
+	var evaluation: Dictionary = evaluate_knowledge(
+		actor,
+		knowledge,
+		inventory_tags,
+		actors,
+		current_round
+	)
+	var urgency_modifier: int = 0
+	if current_round >= GameConstants.TOTAL_ROUNDS - 2:
+		urgency_modifier -= 60
+	if actor.archetype == GameConstants.ARCHETYPE_GAMBLER and actor.gold >= 500:
+		urgency_modifier += 45
+	var purchase_value: int = (
+		int(evaluation.get("estimated_reward", 0))
+		- int(evaluation.get("estimated_risk_cost", 0))
+		+ int(evaluation.get("archetype_tag_bonus", 0))
+		+ int(evaluation.get("inventory_synergy", 0))
+		- offered_price
+		+ urgency_modifier
+	)
+	evaluation["offered_price"] = offered_price
+	evaluation["urgency_modifier"] = urgency_modifier
+	evaluation["purchase_value"] = purchase_value
+	return evaluation
+
+func choose_post_auction_action(
+	actor: ActorState,
+	knowledge: KnowledgeState,
+	has_sealed_space: bool,
+	current_round: int
+) -> Dictionary:
+	var known_tags: PackedStringArray = knowledge.known_tags() if knowledge != null else PackedStringArray()
+	var evaluation: Dictionary = evaluations.get(actor.actor_id, {})
+	var estimated_reward: int = int(
+		evaluation.get("estimated_reward", knowledge.estimated_reward() if knowledge != null else 240)
+	)
+	var estimated_risk: int = int(
+		evaluation.get("estimated_risk_cost", knowledge.estimated_risk_cost() if knowledge != null else 180)
+	)
+	var action: int = GameConstants.PostAuctionAction.KEEP
+	var seals_to_open: int = 0
+	match actor.archetype:
+		GameConstants.ARCHETYPE_COLLECTOR:
+			var collector_interest: bool = _contains_any(
+				known_tags,
+				PackedStringArray(["rare", "cursed", "ownership", "collection", "unique"])
+			)
+			if has_sealed_space and (collector_interest or estimated_reward >= estimated_risk):
+				action = GameConstants.PostAuctionAction.KEEP
+			else:
+				action = GameConstants.PostAuctionAction.OPEN
+				seals_to_open = 2
+		GameConstants.ARCHETYPE_CREDITOR:
+			var economic_interest: bool = _contains_any(
+				known_tags,
+				PackedStringArray(["economy", "contract", "loan", "income", "debt"])
+			)
+			if estimated_risk > estimated_reward + 100:
+				action = GameConstants.PostAuctionAction.BURN
+			elif economic_interest:
+				action = GameConstants.PostAuctionAction.OPEN
+				seals_to_open = 1
+			else:
+				action = GameConstants.PostAuctionAction.KEEP
+		GameConstants.ARCHETYPE_GAMBLER:
+			if _contains_any(known_tags, PackedStringArray(["high_risk", "high_reward", "gamble"])):
+				action = GameConstants.PostAuctionAction.OPEN
+				seals_to_open = GameConstants.MAX_SEALS
+			else:
+				action = GameConstants.PostAuctionAction.KEEP
+	if not has_sealed_space and action == GameConstants.PostAuctionAction.KEEP:
+		action = GameConstants.PostAuctionAction.BURN
+	if current_round >= GameConstants.TOTAL_ROUNDS and action == GameConstants.PostAuctionAction.KEEP:
+		action = GameConstants.PostAuctionAction.OPEN
+		seals_to_open = GameConstants.MAX_SEALS
+	return {
+		"action": action,
+		"seals_to_open": seals_to_open,
+		"used_clue_ids": knowledge.known_clue_ids.duplicate() if knowledge != null else [],
+	}
+
 func _calculate_maximum_bid(
 	actor: ActorState,
 	evaluation: Dictionary,
@@ -296,3 +385,9 @@ func _bid_probability(archetype: StringName) -> float:
 			return 0.88
 		_:
 			return 0.75
+
+func _contains_any(values: PackedStringArray, candidates: PackedStringArray) -> bool:
+	for candidate: String in candidates:
+		if values.has(candidate):
+			return true
+	return false

@@ -33,6 +33,11 @@ enum EffectTrigger {
 	JUDGMENT,
 	ROUND_END,
 	ON_LETHAL_DAMAGE,
+	ON_OPEN,
+	WHILE_HELD,
+	ON_TRANSFER,
+	ON_BURN,
+	DELAYED,
 }
 
 enum RevealLevel {
@@ -40,6 +45,20 @@ enum RevealLevel {
 	BASIC_CLUES,
 	INVESTIGATED,
 	FULLY_REVEALED,
+}
+
+enum TransferPolicy {
+	FOLLOW_CURRENT_OWNER,
+	STAY_WITH_ORIGINAL_OWNER,
+	CANCEL_ON_TRANSFER,
+	TRIGGER_ON_TRANSFER,
+}
+
+enum PostAuctionAction {
+	OPEN,
+	KEEP,
+	SELL,
+	BURN,
 }
 
 const ARCHETYPE_COLLECTOR: StringName = &"collector"
@@ -56,6 +75,9 @@ const DEFAULT_MIN_INCREMENT: int = 50
 const PRICE_SURGE_INCREMENT: int = 150
 const AUCTION_ACTION_LIMIT: int = 100
 const DEFAULT_SEED: int = 20260710
+const MAX_SEALS: int = 3
+const MAX_SEALED_CARDS: int = 3
+const DEFAULT_SALE_PRICE: int = 200
 
 static func phase_name(phase: int) -> String:
 	match phase:

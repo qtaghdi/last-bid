@@ -7,6 +7,7 @@ var actors: Array[ActorState] = []
 var rng: CentralRng
 var auction: AuctionSystem
 var effects: CardEffectSystem
+var post_auction: PostAuctionSystem
 var npc_ai: SimpleNpcAi
 var information_service: InformationService
 var dialogue_service: NpcDialogueService
@@ -30,6 +31,8 @@ func start_new_run(seed_value: int = GameConstants.DEFAULT_SEED) -> void:
 	auction.setup(run_state, events, rng, npc_ai)
 	effects = CardEffectSystem.new()
 	effects.setup(run_state, events, rng)
+	post_auction = PostAuctionSystem.new()
+	post_auction.setup(run_state, events, rng, effects, npc_ai, information_service)
 	actors = [
 		ActorState.create(GameConstants.PLAYER_ID, "플레이어", GameConstants.ActorType.PLAYER),
 		ActorState.create(&"npc_1", "수집가", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_COLLECTOR),
@@ -53,6 +56,10 @@ func request_advance() -> void:
 		GameConstants.Phase.PRE_INFO:
 			_start_auction()
 		GameConstants.Phase.POST_AUCTION:
+			if post_auction != null and not post_auction.can_advance():
+				events.log_debug("낙찰 후 처리를 완료해야 심판으로 진행할 수 있습니다.")
+				events.state_updated.emit()
+				return
 			_transition_to(GameConstants.Phase.JUDGMENT)
 			effects.process_trigger(GameConstants.EffectTrigger.JUDGMENT, actors)
 			_evaluate_terminal_state()
@@ -123,6 +130,97 @@ func can_player_pass() -> bool:
 		and auction.current_actor_id() == GameConstants.PLAYER_ID
 	)
 
+func current_post_instance() -> CardInstance:
+	return post_auction.active_instance if post_auction != null else null
+
+func can_advance_post_auction() -> bool:
+	return (
+		run_state.current_phase == GameConstants.Phase.POST_AUCTION
+		and post_auction != null
+		and post_auction.can_advance()
+	)
+
+func can_open_next_seal() -> bool:
+	return (
+		run_state.current_phase == GameConstants.Phase.POST_AUCTION
+		and post_auction != null
+		and post_auction.can_open(GameConstants.PLAYER_ID)
+	)
+
+func request_open_next_seal() -> bool:
+	if not can_open_next_seal():
+		return false
+	var opened: bool = post_auction.open_next_seal(
+		GameConstants.PLAYER_ID,
+		actors,
+		knowledge_states
+	)
+	_evaluate_terminal_state()
+	events.state_updated.emit()
+	return opened
+
+func can_keep_post_card() -> bool:
+	return (
+		run_state.current_phase == GameConstants.Phase.POST_AUCTION
+		and post_auction != null
+		and post_auction.can_keep(GameConstants.PLAYER_ID, actors)
+	)
+
+func request_keep_post_card() -> bool:
+	if run_state.current_phase != GameConstants.Phase.POST_AUCTION or post_auction == null:
+		return false
+	var kept: bool = post_auction.keep(GameConstants.PLAYER_ID, actors)
+	events.state_updated.emit()
+	return kept
+
+func can_burn_post_card() -> bool:
+	return (
+		run_state.current_phase == GameConstants.Phase.POST_AUCTION
+		and post_auction != null
+		and post_auction.can_burn(GameConstants.PLAYER_ID, actors)
+	)
+
+func request_burn_post_card() -> bool:
+	if not can_burn_post_card():
+		return false
+	var burned: bool = post_auction.burn(GameConstants.PLAYER_ID, actors)
+	_evaluate_terminal_state()
+	events.state_updated.emit()
+	return burned
+
+func can_sell_post_card() -> bool:
+	return (
+		run_state.current_phase == GameConstants.Phase.POST_AUCTION
+		and post_auction != null
+		and post_auction.can_sell(GameConstants.PLAYER_ID, actors)
+	)
+
+func request_sell_post_card(
+	buyer_id: StringName,
+	price: int,
+	disclosed_clue_id: StringName
+) -> bool:
+	if run_state.current_phase != GameConstants.Phase.POST_AUCTION or post_auction == null:
+		return false
+	var accepted: bool = post_auction.propose_sale(
+		GameConstants.PLAYER_ID,
+		buyer_id,
+		price,
+		disclosed_clue_id,
+		actors,
+		knowledge_states
+	)
+	events.state_updated.emit()
+	return accepted
+
+func post_action_block_reason() -> String:
+	if post_auction == null:
+		return "낙찰 후 처리 시스템이 준비되지 않았습니다."
+	return post_auction.action_block_reason(GameConstants.PLAYER_ID, actors)
+
+func sale_targets() -> Array[ActorState]:
+	return post_auction.available_sale_targets(actors) if post_auction != null else []
+
 func current_required_bid() -> int:
 	if auction == null or run_state.current_phase != GameConstants.Phase.AUCTION:
 		return 0
@@ -161,6 +259,19 @@ func debug_information_report() -> String:
 		"LOT: %s" % run_state.current_lot_id,
 		"\nALL PUBLIC CLUES",
 	]
+	var post_instance: CardInstance = current_post_instance()
+	if post_instance != null:
+		lines.append(
+			"POST INSTANCE: %s owner=%s seals=%d sealed=%s reveal=%d resolved=%s"
+			% [
+				post_instance.instance_id,
+				post_instance.owner_id,
+				post_instance.opened_seals,
+				post_instance.sealed,
+				post_instance.reveal_level,
+				post_instance.post_auction_resolved,
+			]
+		)
 	for clue: CardClueDefinition in run_state.current_card.public_clues:
 		lines.append("- %s: %s" % [clue.clue_id, clue.display_text])
 	lines.append("ALL HIDDEN CLUES")
@@ -249,6 +360,8 @@ func _begin_round(round_number: int) -> void:
 		actors
 	)
 	knowledge_by_lot[run_state.current_lot_id] = knowledge_states
+	if post_auction != null:
+		post_auction.reset()
 	npc_ai.prepare_lot(
 		actors,
 		knowledge_states,
@@ -292,11 +405,14 @@ func _drive_npc_turns() -> void:
 func _finish_auction() -> void:
 	var result: Dictionary = auction.settle()
 	var winner_id: StringName = result.get("winner_id", &"") as StringName
+	var acquired_instance: CardInstance = null
 	if not winner_id.is_empty():
 		var winner: ActorState = actor_by_id(winner_id)
 		if winner != null:
-			effects.acquire_card(run_state.current_card, winner, actors)
+			acquired_instance = effects.acquire_card(run_state.current_card, winner, actors)
 	_transition_to(GameConstants.Phase.POST_AUCTION)
+	post_auction.begin(acquired_instance, actors, knowledge_states)
+	_evaluate_terminal_state()
 	events.state_updated.emit()
 
 func _expire_round_rules() -> void:

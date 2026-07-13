@@ -11,4 +11,5 @@ extends Resource
 @export var duration_rounds: int = 0
 @export var overflow_hp_per_gold: int = 0
 @export var consume_after_trigger: bool = false
+@export var requires_open: bool = false
 @export var description: String = ""

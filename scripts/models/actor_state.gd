@@ -34,15 +34,43 @@ static func create(
 func reset_for_auction() -> void:
 	has_passed = false
 
+func sealed_card_count() -> int:
+	var count: int = 0
+	for instance: CardInstance in inventory:
+		if instance.is_available() and instance.sealed:
+			count += 1
+	return count
+
+func has_inventory_space_for_sealed() -> bool:
+	return sealed_card_count() < GameConstants.MAX_SEALED_CARDS
+
+func remove_instance(instance_id: StringName) -> CardInstance:
+	for index: int in range(inventory.size()):
+		if inventory[index].instance_id == instance_id:
+			var instance: CardInstance = inventory[index]
+			inventory.remove_at(index)
+			return instance
+	return null
+
+func instance_by_id(instance_id: StringName) -> CardInstance:
+	for instance: CardInstance in inventory:
+		if instance.instance_id == instance_id:
+			return instance
+	return null
+
 func owned_card_names(reveal_exact_names: bool = false, include_internal_ids: bool = false) -> String:
 	var names: PackedStringArray = []
 	for instance: CardInstance in inventory:
-		if not instance.consumed:
+		if instance.is_available():
 			var definition: CardDefinition = CardCatalog.by_id(instance.definition_id)
 			if definition == null:
 				names.append("알 수 없는 카드")
 				continue
-			var visible_name: String = definition.actual_name if reveal_exact_names else definition.public_name
+			var exact_visible: bool = (
+				reveal_exact_names
+				or instance.reveal_level == GameConstants.RevealLevel.FULLY_REVEALED
+			)
+			var visible_name: String = definition.actual_name if exact_visible else definition.public_name
 			if include_internal_ids:
 				visible_name += " [%s]" % definition.id
 			names.append(visible_name)

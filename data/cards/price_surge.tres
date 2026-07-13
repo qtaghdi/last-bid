@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CardDefinition" load_steps=12 format=3]
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
 [ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
@@ -6,7 +6,7 @@
 
 [sub_resource type="Resource" id="Effect_rule"]
 script = ExtResource("2_effect")
-trigger = 0
+trigger = 4
 effect_type = 7
 target_selector = 3
 amount = 150
@@ -14,6 +14,14 @@ global_rule = &"next_round_min_increment"
 duration_rounds = 1
 consume_after_trigger = true
 description = "다음 라운드 최소 인상액 150골드"
+
+[sub_resource type="Resource" id="Effect_accident"]
+script = ExtResource("2_effect")
+trigger = 4
+effect_type = 1
+target_selector = 3
+amount = -100
+description = "가격 역류로 소유자 골드 100 손실"
 
 [sub_resource type="Resource" id="Clue_role"]
 script = ExtResource("3_clue")
@@ -105,3 +113,8 @@ public_clues = Array[ExtResource("3_clue")]([SubResource("Clue_role"), SubResour
 hidden_clues = Array[ExtResource("3_clue")]([SubResource("Clue_hidden_raise"), SubResource("Clue_hidden_end"), SubResource("Clue_hidden_advantage")])
 starting_bid = 150
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_rule")])
+seal_reveal_texts = PackedStringArray("전체 경매 규칙에 영향을 준다", "다음 라운드의 최소 인상폭을 크게 바꾼다", "다음 라운드 최소 인상액을 150 G로 변경하고 종료 후 50 G로 복구")
+seal_accident_effect = SubResource("Effect_accident")
+transferable = false
+transfer_policy = 2
+burn_cost = 50

@@ -15,6 +15,7 @@ extends Resource
 @export var victory: bool = false
 @export var result_reason: String = ""
 @export var player_info_tokens: int = GameConstants.STARTING_INFO_TOKENS
+@export var detached_instances: Array[CardInstance] = []
 
 func reset(seed_value: int) -> void:
 	current_round = 0
@@ -31,3 +32,4 @@ func reset(seed_value: int) -> void:
 	victory = false
 	result_reason = ""
 	player_info_tokens = GameConstants.STARTING_INFO_TOKENS
+	detached_instances = []

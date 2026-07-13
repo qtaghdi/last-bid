@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CardDefinition" load_steps=12 format=3]
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
 [ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
@@ -10,7 +10,16 @@ trigger = 3
 effect_type = 8
 target_selector = 3
 consume_after_trigger = true
+requires_open = true
 description = "다음 치명 피해를 1회 무효화하고 제거"
+
+[sub_resource type="Resource" id="Effect_accident"]
+script = ExtResource("2_effect")
+trigger = 4
+effect_type = 1
+target_selector = 3
+amount = -100
+description = "의식 비용으로 소유자 골드 100 손실"
 
 [sub_resource type="Resource" id="Clue_role"]
 script = ExtResource("3_clue")
@@ -102,3 +111,7 @@ public_clues = Array[ExtResource("3_clue")]([SubResource("Clue_role"), SubResour
 hidden_clues = Array[ExtResource("3_clue")]([SubResource("Clue_hidden_guard"), SubResource("Clue_hidden_consume"), SubResource("Clue_hidden_uncertain")])
 starting_bid = 250
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_guard")])
+seal_reveal_texts = PackedStringArray("소유자를 대상으로 한다", "치명적 결과를 한 번 막는 방어 효과다", "다음 치명 피해를 1회 무효화하고 소비된다")
+seal_accident_effect = SubResource("Effect_accident")
+transfer_policy = 0
+burn_cost = 50

@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CardDefinition" load_steps=13 format=3]
+[gd_resource type="Resource" script_class="CardDefinition" load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/cards/card_definition.gd" id="1_def"]
 [ext_resource type="Script" path="res://scripts/cards/card_effect_definition.gd" id="2_effect"]
@@ -6,11 +6,11 @@
 
 [sub_resource type="Resource" id="Effect_advance"]
 script = ExtResource("2_effect")
-trigger = 0
+trigger = 4
 effect_type = 1
 target_selector = 3
 amount = 500
-description = "낙찰 즉시 골드 +500"
+description = "개봉 시 골드 +500"
 
 [sub_resource type="Resource" id="Effect_repayment"]
 script = ExtResource("2_effect")
@@ -21,7 +21,16 @@ amount = -700
 delay_rounds = 2
 nested_effect_type = 1
 overflow_hp_per_gold = 200
+requires_open = true
 description = "2라운드 후 700골드 차감, 부족한 200골드마다 체력 1 피해"
+
+[sub_resource type="Resource" id="Effect_accident"]
+script = ExtResource("2_effect")
+trigger = 4
+effect_type = 0
+target_selector = 3
+amount = -1
+description = "계약이 역류해 개봉자 체력 1 피해"
 
 [sub_resource type="Resource" id="Clue_role"]
 script = ExtResource("3_clue")
@@ -113,3 +122,7 @@ public_clues = Array[ExtResource("3_clue")]([SubResource("Clue_role"), SubResour
 hidden_clues = Array[ExtResource("3_clue")]([SubResource("Clue_hidden_cash"), SubResource("Clue_hidden_debt"), SubResource("Clue_hidden_life")])
 starting_bid = 200
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_advance"), SubResource("Effect_repayment")])
+seal_reveal_texts = PackedStringArray("계약의 대상은 서명자다", "즉시 자금을 주지만 지연된 상환 의무가 생긴다", "개봉자 +500 G, 2라운드 후 700 G 상환, 부족한 200 G마다 체력 1 피해")
+seal_accident_effect = SubResource("Effect_accident")
+transfer_policy = 1
+burn_cost = 150
