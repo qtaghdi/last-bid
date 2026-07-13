@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7-stable
+  GODOT_ARCHIVE: Godot_v4.7-stable_linux.x86_64.zip
+  GODOT_SHA256: 0b1a6c54c2c619c12e169fe9241edda4b81080b519451cec2984bf0d2c6cb73c
+  GODOT_DOWNLOAD_DIR: ${{ github.workspace }}/.ci/downloads
+  GODOT_DIR: ${{ github.workspace }}/.ci/godot
+
+jobs:
+  regression:
+    name: Godot 4.7 regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate changed-file whitespace
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${BASE_SHA}" || "${BASE_SHA}" =~ ^0+$ ]]; then
+            git diff --check "${GITHUB_SHA}^!"
+          else
+            git diff --check "${BASE_SHA}...${GITHUB_SHA}"
+          fi
+
+      - name: Restore Godot archive
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.GODOT_DOWNLOAD_DIR }}/${{ env.GODOT_ARCHIVE }}
+          key: godot-${{ runner.os }}-${{ runner.arch }}-${{ env.GODOT_VERSION }}-${{ env.GODOT_SHA256 }}
+
+      - name: Install verified Godot binary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${GODOT_DOWNLOAD_DIR}" "${GODOT_DIR}"
+          archive_path="${GODOT_DOWNLOAD_DIR}/${GODOT_ARCHIVE}"
+
+          if [[ ! -f "${archive_path}" ]]; then
+            download_url="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${GODOT_ARCHIVE}"
+            curl --fail --location --retry 3 --output "${archive_path}" "${download_url}"
+          fi
+
+          echo "${GODOT_SHA256}  ${archive_path}" | sha256sum --check --strict
+          unzip -q "${archive_path}" -d "${GODOT_DIR}"
+          mv "${GODOT_DIR}/Godot_v4.7-stable_linux.x86_64" "${GODOT_DIR}/godot"
+          chmod +x "${GODOT_DIR}/godot"
+          "${GODOT_DIR}/godot" --version
+
+      - name: Import project and check resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${GODOT_DIR}/godot" --headless --editor --path . --quit
+
+      - name: Run deterministic regression suite twice
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for run_number in 1 2; do
+            echo "Headless regression run ${run_number}/2"
+            "${GODOT_DIR}/godot" --headless --path . -s res://tests/test_runner.gd
+          done

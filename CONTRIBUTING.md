@@ -149,6 +149,23 @@ macOS에서 `godot`이 PATH에 없다면:
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s res://tests/test_runner.gd
 ```
 
+## CI와 브랜치 보호
+
+`.github/workflows/ci.yml`은 `main` 대상 PR과 `main` push에서 다음 검증을 수행합니다.
+
+- 변경 범위 `git diff --check`
+- Godot 4.7 헤드리스 import
+- 전체 회귀 테스트 2회 실행
+
+GitHub의 `main` 브랜치 보호 규칙에는 다음 설정을 권장합니다.
+
+- `Godot 4.7 regression` 상태 체크 필수
+- 병합 전 브랜치를 최신 `main` 기준으로 갱신
+- 필수 체크가 끝나기 전 병합 금지
+- force push와 branch deletion 금지
+
+CI가 실패하면 로컬에서 동일한 헤드리스 테스트를 재현한 뒤 원인을 수정합니다. 실패한 체크를 우회하거나 관리자 권한으로 병합하지 않습니다.
+
 ## 버전과 태그
 
 정식 릴리스 전에는 `0.x.y` 형태의 [Semantic Versioning](https://semver.org/)을 사용합니다.
