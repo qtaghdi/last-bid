@@ -4,6 +4,10 @@
 
 <br />
 
+[![CI](https://github.com/qtaghdi/last-bid/actions/workflows/ci.yml/badge.svg)](https://github.com/qtaghdi/last-bid/actions/workflows/ci.yml)
+
+<br />
+
 **불완전한 정보와 상대의 행동을 바탕으로 마지막 입찰을 결정하는 심리 경매 로그라이크**
 
 </div>
@@ -193,6 +197,19 @@ godot --headless --path . -s res://tests/test_runner.gd
 ```
 
 Milestone 1·2·2.5 회귀 테스트와 함께 POST_AUCTION 잠금, 봉인 사고 확률·재현·즉시 패배, 완전 공개, 인벤토리 제한, 판매 가드와 단서 전달, 소유권 이전, 소각, 네 가지 이전 정책, NPC 처리 결정론, 20 Seed 자동 런을 포함해 `392 assertions`를 검증합니다.
+
+### 지속적 통합
+
+GitHub Actions의 `Godot 4.7 regression` 체크는 `main` 대상 PR, `main` push, 수동 실행에서 동작합니다.
+
+- 공식 Godot `4.7-stable` Linux 바이너리를 고정 SHA-256으로 검증한 뒤 사용
+- 변경 범위의 공백 오류 검사
+- 에디터 헤드리스 import로 씬과 리소스 로드 확인
+- 회귀 테스트를 서로 독립된 프로세스에서 2회 실행해 결정론 재확인
+- 같은 PR의 이전 실행은 취소해 불필요한 Actions 사용 시간 절약
+- 저장소 쓰기나 비밀값 없이 `contents: read` 권한만 사용
+
+워크플로 정의는 `.github/workflows/ci.yml`에 있습니다. `main` 보호 규칙에서는 `Godot 4.7 regression`을 필수 체크로 지정하는 것을 권장합니다.
 
 수동 UX 검증 절차:
 
