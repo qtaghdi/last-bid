@@ -296,10 +296,11 @@ func _pre_info_category(evaluation: Dictionary) -> StringName:
 		return &"interest"
 	return &"caution"
 
-func _speak(actor: ActorState, category: StringName, rng: CentralRng) -> void:
+func _speak(actor: ActorState, category: StringName, _rng: CentralRng) -> void:
 	if _dialogue_service == null or _events == null:
 		return
-	var line: String = _dialogue_service.select_line(actor.archetype, category, rng)
+	var dialogue_identity: StringName = actor.character_id if not actor.character_id.is_empty() else actor.archetype
+	var line: String = _dialogue_service.select_line(dialogue_identity, category)
 	recent_dialogues[actor.actor_id] = line
 	_events.npc_dialogue_spoken.emit(actor.actor_id, line, category)
 	_events.log_debug("%s 대사[%s]: %s" % [actor.display_name, category, line])

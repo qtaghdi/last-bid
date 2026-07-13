@@ -28,6 +28,7 @@ func acquire_card(
 		_run_state.current_round,
 		_instance_serial
 	)
+	instance.source_lot_id = _run_state.current_lot_id
 	owner.inventory.append(instance)
 	_events.card_acquired.emit(owner.actor_id, definition.id)
 	_events.log_debug("%s이(가) %s 카드를 획득했습니다." % [owner.display_name, definition.actual_name])
@@ -151,14 +152,25 @@ func transfer_instance(
 	_events.state_updated.emit()
 	return true
 
-func burn_instance(instance: CardInstance, owner: ActorState, actors: Array[ActorState]) -> bool:
+func burn_instance(
+	instance: CardInstance,
+	owner: ActorState,
+	actors: Array[ActorState],
+	ignore_cost: bool = false
+) -> bool:
 	if instance == null or owner == null or instance.owner_id != owner.actor_id:
 		return false
 	var definition: CardDefinition = _definition_for(instance.definition_id)
-	if definition == null or not definition.burnable or owner.gold < definition.burn_cost:
+	if (
+		definition == null
+		or not definition.burnable
+		or (not ignore_cost and owner.gold < definition.burn_cost)
+	):
 		return false
-	owner.gold -= definition.burn_cost
-	_events.gold_changed.emit(owner.actor_id, -definition.burn_cost, owner.gold, &"")
+	var paid_cost: int = 0 if ignore_cost else definition.burn_cost
+	owner.gold -= paid_cost
+	if paid_cost > 0:
+		_events.gold_changed.emit(owner.actor_id, -paid_cost, owner.gold, &"")
 	for burn_effect: CardEffectDefinition in definition.burn_effects:
 		process_auxiliary_effect(instance, definition, burn_effect, owner, actors)
 	owner.remove_instance(instance.instance_id)
@@ -176,7 +188,7 @@ func burn_instance(instance: CardInstance, owner: ActorState, actors: Array[Acto
 		instance.pending_effects.clear()
 		instance.remaining_turns = 0
 	_events.card_burned.emit(instance.instance_id, former_owner)
-	_events.log_debug("%s 소각: %s (-%d골드)" % [owner.display_name, definition.actual_name, definition.burn_cost])
+	_events.log_debug("%s 소각: %s (-%d골드)" % [owner.display_name, definition.actual_name, paid_cost])
 	_events.state_updated.emit()
 	return true
 

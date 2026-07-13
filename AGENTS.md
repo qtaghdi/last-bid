@@ -4,7 +4,7 @@
 
 **LAST BID** is a single-player auction mind-game built with Godot 4 and GDScript.
 
-The current stable baseline is the completed Milestone 3 prototype. It adds post-auction choices, three sequential seals, deterministic seal accidents, inventory limits, sales, ownership transfer, burning, and NPC post-auction decisions to the Milestone 2.5 UX flow.
+The current stable baseline is the completed Milestone 4 prototype. It adds NPC-initiated negotiation, named character profiles, hidden goals, emotions, behavioral tells, run-scoped relationships, emergency abilities, and deterministic negotiation/dialogue RNG to the Milestone 3 flow.
 
 Primary prototype goals:
 
@@ -25,6 +25,10 @@ Primary prototype goals:
 - Three seal levels and deterministic accident checks
 - Open, keep, sell, and burn post-auction actions
 - Transfer-aware delayed effects and a three-sealed-card inventory limit
+- A NEGOTIATION phase between PRE_INFO and AUCTION
+- Mara, Volt, and Sera character profiles built on the existing archetypes
+- Five offer types with accept, reject, and one counter-offer
+- Hidden goals, emotions, tells, temporary relationships, and one-use emergency abilities
 
 ## Required Technology
 
@@ -47,14 +51,15 @@ Use the project-defined Godot 4 stable version.
 - Do not use beta, release candidate, dev, or nightly builds.
 - Avoid APIs unavailable in the selected Godot version.
 
-## Current Baseline — Milestone 3
+## Current Baseline — Milestone 4
 
-The items below are implemented and must remain working. Preserve this baseline unless the user explicitly requests a change. Do not infer or pre-build Milestone 3 features from the future placeholders in the UI.
+The items below are implemented and must remain working. Preserve this baseline unless the user explicitly requests a change. Do not infer or pre-build future milestone features from placeholders in the UI or data.
 
 Included:
 
 - `RUN_SETUP`
 - `PRE_INFO`
+- `NEGOTIATION`
 - `AUCTION`
 - `POST_AUCTION`
 - `JUDGMENT`
@@ -89,12 +94,20 @@ Included:
 - Card burning with cost, burn effects, and delayed-effect cancellation policy
 - Ownership transfer with stable instance IDs, history, and remaining counters
 - Deterministic collector, creditor, and gambler post-auction decisions
+- Zero to two unique living NPC negotiation offers per round
+- Buy-card, keep-sealed, share-information, skip-auction, and hold-card offers
+- Accept, reject, and one price counter per offer
+- Run-scoped relationship scores clamped to `-2...+2`
+- Data-driven Mara, Volt, and Sera profiles, tells, secret goals, and dialogue
+- Separate deterministic negotiation and dialogue RNG streams
+- One-use emergency burn, life collateral, and information theft abilities
 
 Excluded:
 
-- Negotiation
 - Promises and betrayal
-- Reputation
+- Permanent reputation
+- Promise persistence and violation checks
+- Repeated negotiation and multiple counter-offers
 - Full bluffing systems beyond the gambler's limited auction bluff
 - Character jobs
 - Passive items
@@ -137,6 +150,8 @@ Keep these responsibilities separate:
 - Card instances
 - Card-effect resolution
 - NPC decisions
+- Negotiation rules and offer resolution
+- Character personality and run-scoped social state
 - Actor state
 - RNG
 - UI presentation
@@ -190,6 +205,10 @@ The same seed must reproduce:
 - Other gameplay-relevant random results
 
 Cosmetic randomness must not alter gameplay RNG order.
+
+Negotiation generation, tells, hidden goals, acceptance, and emergency-use rolls use the dedicated deterministic negotiation RNG. Dialogue selection uses a separate deterministic dialogue RNG. Neither stream may consume the gameplay RNG.
+
+Negotiation evaluation accepts `KnowledgeState` and public instance state. It must not inspect exact card effects or use `CardDefinition.effects` to choose an offer.
 
 ## Core Rules
 
@@ -287,6 +306,7 @@ scripts/
   ui/         # Presentation-only component scripts
 data/
   cards/      # Card Resource data
+  npcs/       # Character profiles, secret goals, tells, and dialogue
 tests/        # Headless regression runner
 themes/       # Shared UI Theme resources
 ```
@@ -299,6 +319,7 @@ scripts/core/auction_system.gd        # Bid/pass rules and settlement
 scripts/core/central_rng.gd           # Seeded gameplay randomness
 scripts/core/event_bus.gd             # Gameplay and presentation events
 scripts/core/post_auction_system.gd   # Seals, accidents, keep/sale/burn/transfer
+scripts/core/negotiation_system.gd    # Offers, relationships, emotions, goals, tells
 scripts/cards/card_effect_system.gd   # Immediate and delayed effect resolution
 scripts/knowledge/information_service.gd
 scripts/ai/simple_npc_ai.gd
@@ -363,12 +384,23 @@ Use signals or an event bus for gameplay notifications such as:
 - `card_burned`
 - `inventory_limit_reached`
 - `card_owner_changed`
+- `negotiation_started`
+- `negotiation_finished`
+- `offer_created`
+- `offer_countered`
+- `offer_accepted`
+- `offer_rejected`
+- `relationship_changed`
+- `emotion_changed`
+- `tell_triggered`
+- `secret_goal_progressed`
+- `emergency_ability_used`
 
 Gameplay systems must not directly perform UI animations.
 
 ## UI Rules
 
-The Milestone 3 UI is the current playable UX baseline and must remain usable without reading the debug log.
+The Milestone 4 UI is the current playable UX baseline and must remain usable without reading the debug log.
 
 Display:
 
@@ -397,6 +429,10 @@ Display:
 - Open, keep, sell, and burn controls with disabled reasons
 - Sale target, price, and disclosed-clue selection
 - Exact identity and effects only after the third seal or in DEBUG
+- Negotiation issuer, emotion, tell, dialogue, terms, target, and relationship
+- Accept, reject, and one counter-offer action during NEGOTIATION
+- Participant character name, emotion, recent tell, relationship, and emergency-use state
+- Hidden goals, offer scores, acceptance thresholds, tell reliability, and RNG state only in DEBUG
 
 Use `Container` nodes so the layout does not immediately break at another desktop resolution.
 
@@ -446,6 +482,14 @@ Tests should cover at minimum:
 - Inventory, sale, burn, and all transfer-policy guards
 - NPC post-auction archetype preferences and deterministic decisions
 - Twenty seeded full runs finish without an infinite loop after post-auction actions
+- PRE_INFO transitions to NEGOTIATION and unresolved offers block AUCTION
+- At most two unique living NPCs offer per round, deterministically
+- Offer acceptance, rejection, counter limits, payment, information, and forced-pass effects
+- Relationship bounds/reset and influence on generation, price, and acceptance
+- Character emotions, tell pools/reliability, hidden-goal selection, and normal-UI secrecy
+- Mara, Volt, and Sera emergency abilities are one-use
+- Dialogue is data-driven and dialogue/negotiation RNG do not consume gameplay RNG
+- Twenty seeded full runs finish with negotiation enabled
 
 When an automated test is impractical, document a deterministic manual verification procedure in `README.md`.
 

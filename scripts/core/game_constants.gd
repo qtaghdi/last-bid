@@ -4,6 +4,7 @@ extends RefCounted
 enum Phase {
 	RUN_SETUP,
 	PRE_INFO,
+	NEGOTIATION,
 	AUCTION,
 	POST_AUCTION,
 	JUDGMENT,
@@ -61,9 +62,38 @@ enum PostAuctionAction {
 	BURN,
 }
 
+enum OfferType {
+	BUY_CARD,
+	KEEP_SEALED,
+	SHARE_INFORMATION,
+	SKIP_AUCTION,
+	HOLD_CARD,
+}
+
+enum RequestedAction {
+	SELL_CARD,
+	DO_NOT_OPEN,
+	PASS_CURRENT_AUCTION,
+	KEEP_CARD,
+	REVEAL_CLUE,
+}
+
+enum Emotion {
+	CALM,
+	INTERESTED,
+	NERVOUS,
+	ANGRY,
+	AFRAID,
+	SMUG,
+}
+
 const ARCHETYPE_COLLECTOR: StringName = &"collector"
 const ARCHETYPE_CREDITOR: StringName = &"creditor"
 const ARCHETYPE_GAMBLER: StringName = &"gambler"
+
+const CHARACTER_MARA: StringName = &"mara"
+const CHARACTER_VOLT: StringName = &"volt"
+const CHARACTER_SERA: StringName = &"sera"
 
 const PLAYER_ID: StringName = &"player"
 const TOTAL_ROUNDS: int = 10
@@ -78,6 +108,13 @@ const DEFAULT_SEED: int = 20260710
 const MAX_SEALS: int = 3
 const MAX_SEALED_CARDS: int = 3
 const DEFAULT_SALE_PRICE: int = 200
+const MAX_NEGOTIATION_OFFERS: int = 2
+const NEGOTIATION_SCORE_THRESHOLD: int = 120
+const COUNTER_INCREMENT: int = 50
+const RELATIONSHIP_MIN: int = -2
+const RELATIONSHIP_MAX: int = 2
+const NEGOTIATION_SEED_SALT: int = 0x4E45474F
+const DIALOGUE_SEED_SALT: int = 0x4449414C
 
 static func phase_name(phase: int) -> String:
 	match phase:
@@ -85,6 +122,8 @@ static func phase_name(phase: int) -> String:
 			return "RUN_SETUP"
 		Phase.PRE_INFO:
 			return "PRE_INFO"
+		Phase.NEGOTIATION:
+			return "NEGOTIATION"
 		Phase.AUCTION:
 			return "AUCTION"
 		Phase.POST_AUCTION:

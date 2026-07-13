@@ -6,6 +6,7 @@ extends Control
 @onready var card_info_panel: CardInfoPanel = %CardInfoPanel
 @onready var reaction_panel: ReactionPanel = %ReactionPanel
 @onready var auction_panel: AuctionPanel = %AuctionPanel
+@onready var negotiation_panel: NegotiationPanel = %NegotiationPanel
 @onready var post_auction_panel: PostAuctionPanel = %PostAuctionPanel
 @onready var judgment_panel: JudgmentPanel = %JudgmentPanel
 @onready var result_panel: RunResultPanel = %RunResultPanel
@@ -37,6 +38,9 @@ func _ready() -> void:
 	post_auction_panel.keep_requested.connect(_on_post_keep_requested)
 	post_auction_panel.burn_requested.connect(_on_post_burn_requested)
 	post_auction_panel.sale_requested.connect(_on_post_sale_requested)
+	negotiation_panel.accept_requested.connect(_on_offer_accept_requested)
+	negotiation_panel.reject_requested.connect(_on_offer_reject_requested)
+	negotiation_panel.counter_requested.connect(_on_offer_counter_requested)
 	_connect_events()
 	top_hud.set_seed(GameConstants.DEFAULT_SEED)
 	_start_new_run(GameConstants.DEFAULT_SEED)
@@ -101,6 +105,18 @@ func _on_post_sale_requested(buyer_id: StringName, price: int, clue_id: StringNa
 	controller.request_sell_post_card(buyer_id, price, clue_id)
 	_refresh()
 
+func _on_offer_accept_requested() -> void:
+	controller.request_accept_offer()
+	_refresh()
+
+func _on_offer_reject_requested() -> void:
+	controller.request_reject_offer()
+	_refresh()
+
+func _on_offer_counter_requested(amount: int) -> void:
+	controller.request_counter_offer(amount)
+	_refresh()
+
 func set_debug_mode(enabled: bool) -> void:
 	_debug_mode = enabled
 	if not is_node_ready():
@@ -131,6 +147,7 @@ func _refresh() -> void:
 	)
 	reaction_panel.render(controller)
 	auction_panel.render(controller)
+	negotiation_panel.render(controller)
 	post_auction_panel.render(controller)
 	judgment_panel.render(run.current_phase, _resolution_lines, controller.actors)
 	result_panel.render(controller, _debug_mode)
@@ -143,10 +160,12 @@ func _refresh() -> void:
 func _update_phase_visibility(phase: int) -> void:
 	var is_pre_info: bool = phase == GameConstants.Phase.PRE_INFO
 	var is_auction: bool = phase == GameConstants.Phase.AUCTION
+	var is_negotiation: bool = phase == GameConstants.Phase.NEGOTIATION
 	var is_post: bool = phase == GameConstants.Phase.POST_AUCTION
 	var is_resolution: bool = phase == GameConstants.Phase.JUDGMENT or phase == GameConstants.Phase.ROUND_END
 	var is_result: bool = phase == GameConstants.Phase.RUN_RESULT
 	card_info_panel.visible = is_pre_info or is_auction
+	negotiation_panel.visible = is_negotiation
 	auction_panel.visible = is_auction
 	post_auction_panel.visible = is_post
 	judgment_panel.visible = is_resolution
@@ -159,8 +178,9 @@ func _update_action_bar(phase: int) -> void:
 	var run: RunState = controller.run_state
 	var is_pre_info: bool = phase == GameConstants.Phase.PRE_INFO
 	var is_auction: bool = phase == GameConstants.Phase.AUCTION
+	var is_negotiation: bool = phase == GameConstants.Phase.NEGOTIATION
 	investigate_button.visible = is_pre_info
-	advance_button.visible = is_pre_info or phase in [
+	advance_button.visible = is_pre_info or is_negotiation or phase in [
 		GameConstants.Phase.POST_AUCTION,
 		GameConstants.Phase.JUDGMENT,
 		GameConstants.Phase.ROUND_END,
@@ -173,8 +193,16 @@ func _update_action_bar(phase: int) -> void:
 	advance_button.disabled = false
 	if is_pre_info:
 		investigate_button.text = "추가 조사 · INFO %d" % run.player_info_tokens
-		advance_button.text = "경매 시작"
+		advance_button.text = "협상으로"
 		action_hint.text = "공개 단서와 NPC 반응을 확인한 뒤 조사 여부를 결정하세요."
+	elif is_negotiation:
+		advance_button.text = "경매 시작"
+		advance_button.disabled = not controller.can_advance_negotiation()
+		action_hint.text = (
+			"모든 제안을 처리했습니다. 경매를 시작하세요."
+			if controller.can_advance_negotiation()
+			else "현재 제안에 수락, 거절 또는 한 번의 가격 재제안으로 답하세요."
+		)
 	elif is_auction:
 		var required_bid: int = controller.current_required_bid()
 		bid_button.text = (

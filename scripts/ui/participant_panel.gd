@@ -26,6 +26,19 @@ func render(controller: GameFlowController, debug_mode: bool) -> void:
 			"HP %d/%d    GOLD %d" % [actor.hp, actor.max_hp, actor.gold],
 			"CARD %s" % actor.owned_card_names(debug_mode, debug_mode),
 		]
+		if actor.actor_type == GameConstants.ActorType.NPC:
+			var npc_state: NpcRunState = controller.npc_run_state_for(actor.actor_id)
+			if npc_state != null:
+				lines.append(
+					"감정 %s · 관계 %+d · 비장 %s"
+					% [
+						NegotiationSystem.emotion_name(npc_state.emotion),
+						npc_state.relationship_score,
+						"사용" if npc_state.emergency_used else "보유",
+					]
+				)
+				if not npc_state.recent_tell_text.is_empty():
+					lines.append("신호 · %s" % npc_state.recent_tell_text)
 		if actor.actor_type == GameConstants.ActorType.NPC and not dialogue.is_empty():
 			lines.append(
 				"[color=#%s]“%s”[/color]" % [UiPalette.bbcode(UiPalette.MUTED), dialogue]

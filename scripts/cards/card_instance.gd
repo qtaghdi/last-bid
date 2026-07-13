@@ -18,6 +18,10 @@ extends Resource
 @export var revealed_seal_texts: PackedStringArray = []
 @export var post_auction_resolved: bool = false
 @export var sale_attempted: bool = false
+@export var source_lot_id: StringName = &""
+@export var public_name_snapshot: String = ""
+@export var transferable_snapshot: bool = true
+@export var burnable_snapshot: bool = true
 
 var acquired_round: int = 0
 var delay_counters: Dictionary = {}
@@ -32,6 +36,9 @@ static func create(
 	var instance: CardInstance = CardInstance.new()
 	instance.instance_id = StringName("%s_%d_%d" % [definition.id, round_number, serial])
 	instance.definition_id = definition.id
+	instance.public_name_snapshot = definition.public_name
+	instance.transferable_snapshot = definition.transferable
+	instance.burnable_snapshot = definition.burnable
 	instance.owner_id = owner
 	instance.original_owner_id = owner
 	instance.effect_owner_id = owner

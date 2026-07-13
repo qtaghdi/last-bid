@@ -5,6 +5,7 @@ extends Resource
 @export var display_name: String = ""
 @export var actor_type: int = GameConstants.ActorType.NPC
 @export var archetype: StringName = &""
+@export var character_id: StringName = &""
 @export var hp: int = GameConstants.STARTING_HP
 @export var max_hp: int = GameConstants.MAX_HP
 @export var gold: int = GameConstants.STARTING_GOLD
@@ -16,13 +17,15 @@ static func create(
 	id_value: StringName,
 	name_value: String,
 	type_value: int,
-	archetype_value: StringName = &""
+	archetype_value: StringName = &"",
+	character_value: StringName = &""
 ) -> ActorState:
 	var actor: ActorState = ActorState.new()
 	actor.actor_id = id_value
 	actor.display_name = name_value
 	actor.actor_type = type_value
 	actor.archetype = archetype_value
+	actor.character_id = character_value
 	actor.hp = GameConstants.STARTING_HP
 	actor.max_hp = GameConstants.MAX_HP
 	actor.gold = GameConstants.STARTING_GOLD
