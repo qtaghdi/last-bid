@@ -33,6 +33,17 @@ signal card_transferred(instance_id: StringName, from_id: StringName, to_id: Str
 signal card_burned(instance_id: StringName, former_owner_id: StringName)
 signal inventory_limit_reached(actor_id: StringName)
 signal card_owner_changed(instance_id: StringName, owner_id: StringName)
+signal negotiation_started(round_number: int)
+signal negotiation_finished(round_number: int)
+signal offer_created(offer_id: StringName, issuer_id: StringName, offer_type: int)
+signal offer_countered(offer_id: StringName, amount: int)
+signal offer_accepted(offer_id: StringName, issuer_id: StringName)
+signal offer_rejected(offer_id: StringName, issuer_id: StringName)
+signal relationship_changed(actor_id: StringName, value: int)
+signal emotion_changed(actor_id: StringName, emotion: int)
+signal tell_triggered(actor_id: StringName, tell_id: StringName, text: String)
+signal secret_goal_progressed(actor_id: StringName, goal_id: StringName, progress: int)
+signal emergency_ability_used(actor_id: StringName, ability_id: StringName)
 signal state_updated
 
 func log_debug(message: String) -> void:

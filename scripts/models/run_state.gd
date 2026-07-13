@@ -16,6 +16,12 @@ extends Resource
 @export var result_reason: String = ""
 @export var player_info_tokens: int = GameConstants.STARTING_INFO_TOKENS
 @export var detached_instances: Array[CardInstance] = []
+@export var npc_run_states: Dictionary = {}
+@export var negotiation_offers: Array[NegotiationOffer] = []
+@export var current_offer_index: int = 0
+@export var negotiation_complete: bool = true
+@export var player_forced_pass: bool = false
+@export var temporary_negotiation_warning: String = ""
 
 func reset(seed_value: int) -> void:
 	current_round = 0
@@ -33,3 +39,9 @@ func reset(seed_value: int) -> void:
 	result_reason = ""
 	player_info_tokens = GameConstants.STARTING_INFO_TOKENS
 	detached_instances = []
+	npc_run_states = {}
+	negotiation_offers = []
+	current_offer_index = 0
+	negotiation_complete = true
+	player_forced_pass = false
+	temporary_negotiation_warning = ""

@@ -11,6 +11,7 @@ var post_auction: PostAuctionSystem
 var npc_ai: SimpleNpcAi
 var information_service: InformationService
 var dialogue_service: NpcDialogueService
+var negotiation: NegotiationSystem
 var knowledge_states: Dictionary = {}
 var knowledge_by_lot: Dictionary = {}
 
@@ -22,7 +23,7 @@ func start_new_run(seed_value: int = GameConstants.DEFAULT_SEED) -> void:
 	run_state = RunState.new()
 	run_state.reset(seed_value)
 	rng = CentralRng.new(seed_value)
-	dialogue_service = NpcDialogueService.new()
+	dialogue_service = NpcDialogueService.new(seed_value)
 	npc_ai = SimpleNpcAi.new()
 	npc_ai.setup(events, dialogue_service)
 	information_service = InformationService.new()
@@ -31,14 +32,17 @@ func start_new_run(seed_value: int = GameConstants.DEFAULT_SEED) -> void:
 	auction.setup(run_state, events, rng, npc_ai)
 	effects = CardEffectSystem.new()
 	effects.setup(run_state, events, rng)
+	negotiation = NegotiationSystem.new()
+	negotiation.setup(run_state, events, seed_value, dialogue_service, information_service, effects)
 	post_auction = PostAuctionSystem.new()
 	post_auction.setup(run_state, events, rng, effects, npc_ai, information_service)
 	actors = [
 		ActorState.create(GameConstants.PLAYER_ID, "플레이어", GameConstants.ActorType.PLAYER),
-		ActorState.create(&"npc_1", "수집가", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_COLLECTOR),
-		ActorState.create(&"npc_2", "채권자", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_CREDITOR),
-		ActorState.create(&"npc_3", "도박사", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_GAMBLER),
+		ActorState.create(&"npc_1", "마라", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_COLLECTOR, GameConstants.CHARACTER_MARA),
+		ActorState.create(&"npc_2", "세라", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_CREDITOR, GameConstants.CHARACTER_SERA),
+		ActorState.create(&"npc_3", "볼트", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_GAMBLER, GameConstants.CHARACTER_VOLT),
 	]
+	negotiation.initialize_characters(actors)
 	knowledge_states = {}
 	knowledge_by_lot = {}
 	_transition_to(GameConstants.Phase.RUN_SETUP, true)
@@ -54,6 +58,12 @@ func request_advance() -> void:
 		return
 	match run_state.current_phase:
 		GameConstants.Phase.PRE_INFO:
+			_start_negotiation()
+		GameConstants.Phase.NEGOTIATION:
+			if negotiation == null or not negotiation.can_advance():
+				events.log_debug("모든 협상 제안을 먼저 처리해야 합니다.")
+				events.state_updated.emit()
+				return
 			_start_auction()
 		GameConstants.Phase.POST_AUCTION:
 			if post_auction != null and not post_auction.can_advance():
@@ -129,6 +139,64 @@ func can_player_pass() -> bool:
 		and auction != null
 		and auction.current_actor_id() == GameConstants.PLAYER_ID
 	)
+
+func current_negotiation_offer() -> NegotiationOffer:
+	return negotiation.current_offer() if negotiation != null else null
+
+func can_advance_negotiation() -> bool:
+	return (
+		run_state.current_phase == GameConstants.Phase.NEGOTIATION
+		and negotiation != null
+		and negotiation.can_advance()
+	)
+
+func request_accept_offer() -> bool:
+	if run_state.current_phase != GameConstants.Phase.NEGOTIATION or negotiation == null:
+		return false
+	var accepted: bool = negotiation.accept_current_offer()
+	events.state_updated.emit()
+	return accepted
+
+func request_reject_offer() -> bool:
+	if run_state.current_phase != GameConstants.Phase.NEGOTIATION or negotiation == null:
+		return false
+	var rejected: bool = negotiation.reject_current_offer()
+	events.state_updated.emit()
+	return rejected
+
+func request_counter_offer(amount: int) -> bool:
+	if run_state.current_phase != GameConstants.Phase.NEGOTIATION or negotiation == null:
+		return false
+	var resolved: bool = negotiation.counter_current_offer(amount)
+	events.state_updated.emit()
+	return resolved
+
+func npc_run_state_for(actor_id: StringName) -> NpcRunState:
+	return negotiation.state_for(actor_id) if negotiation != null else null
+
+func npc_profile_for(actor_id: StringName) -> NpcCharacterProfile:
+	return negotiation.profile_for(actor_id) if negotiation != null else null
+
+func negotiation_offer_summary(offer: NegotiationOffer) -> String:
+	if offer == null:
+		return "현재 제안이 없습니다."
+	var lines: PackedStringArray = [
+		"%s · %s" % [NegotiationSystem.offer_type_name(offer.offer_type), offer.target_display_name],
+	]
+	if offer.offered_gold > 0:
+		lines.append("제공: %d G" % offer.offered_gold)
+	if not offer.offered_clue_id.is_empty():
+		lines.append("제공: 현재 물품의 단서 1개")
+	match offer.requested_action:
+		GameConstants.RequestedAction.SELL_CARD:
+			lines.append("요청: 카드 소유권 이전")
+		GameConstants.RequestedAction.DO_NOT_OPEN:
+			lines.append("요청: 이번 라운드 봉인 유지")
+		GameConstants.RequestedAction.PASS_CURRENT_AUCTION:
+			lines.append("요청: 이번 경매 패스")
+		GameConstants.RequestedAction.KEEP_CARD:
+			lines.append("요청: 카드 보관")
+	return "\n".join(lines)
 
 func current_post_instance() -> CardInstance:
 	return post_auction.active_instance if post_auction != null else null
@@ -303,6 +371,8 @@ func debug_information_report() -> String:
 					npc_ai.is_bluffing(actor.actor_id),
 				]
 			)
+	if negotiation != null:
+		lines.append("\n" + negotiation.debug_report())
 	return "\n".join(lines)
 
 func debug_effect_report() -> String:
@@ -324,6 +394,10 @@ func _initialize_services() -> void:
 		events = EventBus.new()
 		events.name = "EventBus"
 		add_child(events)
+		events.bid_placed.connect(_record_negotiation_bid)
+		events.auction_won.connect(_record_negotiation_win)
+		events.card_opened.connect(_record_negotiation_open)
+		events.card_transferred.connect(_record_negotiation_trade)
 
 func _build_deck() -> Array[CardDefinition]:
 	var definitions: Array[CardDefinition] = CardCatalog.load_all()
@@ -385,7 +459,16 @@ func _start_auction() -> void:
 		return
 	_transition_to(GameConstants.Phase.AUCTION)
 	auction.start_auction(actors)
+	if run_state.player_forced_pass and auction.current_actor_id() == GameConstants.PLAYER_ID:
+		auction.pass_current(GameConstants.PLAYER_ID)
 	_drive_npc_turns()
+
+func _start_negotiation() -> void:
+	if _alive_actor_count() <= 1:
+		_evaluate_terminal_state()
+		return
+	_transition_to(GameConstants.Phase.NEGOTIATION)
+	negotiation.begin_round(actors, knowledge_states)
 
 func _drive_npc_turns() -> void:
 	var guard: int = 0
@@ -473,3 +556,19 @@ func _transition_to(next_phase: int, force_emit: bool = false) -> void:
 	run_state.current_phase = next_phase
 	events.phase_changed.emit(next_phase)
 	events.log_debug("Phase → %s" % GameConstants.phase_name(next_phase))
+
+func _record_negotiation_bid(actor_id: StringName, amount: int) -> void:
+	if negotiation != null:
+		negotiation.record_bid(actor_id, amount)
+
+func _record_negotiation_win(actor_id: StringName, _card_id: StringName, _amount: int) -> void:
+	if negotiation != null:
+		negotiation.record_auction_win(actor_id)
+
+func _record_negotiation_open(_instance_id: StringName, owner_id: StringName) -> void:
+	if negotiation != null:
+		negotiation.record_card_opened(owner_id)
+
+func _record_negotiation_trade(_instance_id: StringName, from_id: StringName, to_id: StringName) -> void:
+	if negotiation != null:
+		negotiation.record_trade(from_id, to_id)

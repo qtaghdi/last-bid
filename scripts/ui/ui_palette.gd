@@ -24,6 +24,8 @@ static func phase_label(phase: int) -> String:
 			return "게임 준비"
 		GameConstants.Phase.PRE_INFO:
 			return "사전 정보"
+		GameConstants.Phase.NEGOTIATION:
+			return "협상"
 		GameConstants.Phase.AUCTION:
 			return "경매"
 		GameConstants.Phase.POST_AUCTION:

@@ -32,6 +32,13 @@ func _run_all() -> void:
 	_test_sale_and_transfer_guards()
 	_test_burn_and_delayed_transfer_policies()
 	_test_npc_post_auction_determinism()
+	_test_negotiation_phase_and_generation()
+	_test_negotiation_determinism_and_rng_isolation()
+	_test_offer_responses_and_relationships()
+	_test_offer_type_effects()
+	_test_character_emotion_tells_and_visibility()
+	_test_emergency_abilities()
+	_test_dialogue_data_and_rng_isolation()
 	_test_player_death_is_defeat()
 	_test_round_ten_survival_is_victory()
 	_test_twenty_simulations_finish()
@@ -76,6 +83,7 @@ func _test_card_information_visibility() -> void:
 	var card_panel: CardInfoPanel = ui.get_node("%CardInfoPanel") as CardInfoPanel
 	var reaction_panel: ReactionPanel = ui.get_node("%ReactionPanel") as ReactionPanel
 	var auction_panel: AuctionPanel = ui.get_node("%AuctionPanel") as AuctionPanel
+	var negotiation_panel: NegotiationPanel = ui.get_node("%NegotiationPanel") as NegotiationPanel
 	var post_panel: PostAuctionPanel = ui.get_node("%PostAuctionPanel") as PostAuctionPanel
 	var judgment_panel: JudgmentPanel = ui.get_node("%JudgmentPanel") as JudgmentPanel
 	var result_panel: RunResultPanel = ui.get_node("%RunResultPanel") as RunResultPanel
@@ -126,6 +134,21 @@ func _test_card_information_visibility() -> void:
 	controller.run_state.player_info_tokens = remaining_tokens
 	ui.refresh_ui()
 
+	controller.request_advance()
+	_assert_equal(controller.run_state.current_phase, GameConstants.Phase.NEGOTIATION, "PRE_INFO 후 NEGOTIATION 진입")
+	_assert_equal(top_hud.displayed_phase(), "협상", "NEGOTIATION 사용자용 단계명 표시")
+	_assert_true(negotiation_panel.visible, "NEGOTIATION 전용 패널 표시")
+	_assert_true(not card_panel.visible and not auction_panel.visible and not reaction_panel.visible, "NEGOTIATION에서 이전 단계 패널 숨김")
+	_assert_true(not bid_button.visible and not pass_button.visible and not investigate_button.visible, "NEGOTIATION에서 경매 액션 숨김")
+	var negotiation_minimum: Vector2 = (ui.get_node("PageMargin/Page") as Control).get_combined_minimum_size()
+	_assert_true(
+		negotiation_minimum.x <= 1244.0 and negotiation_minimum.y <= 688.0,
+		"NEGOTIATION 최소 레이아웃이 1280x720 콘텐츠 영역에 수용 (%s)" % negotiation_minimum
+	)
+	while controller.current_negotiation_offer() != null:
+		_assert_true(controller.request_reject_offer(), "협상 제안 순차 거절 처리")
+	ui.refresh_ui()
+	_assert_true(advance_button.visible and not advance_button.disabled, "모든 협상 처리 후 경매 시작 활성")
 	controller.request_advance()
 	_assert_equal(controller.run_state.current_phase, GameConstants.Phase.AUCTION, "경매 시작 후 AUCTION 진입")
 	_assert_equal(top_hud.displayed_phase(), "경매", "AUCTION 사용자용 단계명 표시")
@@ -867,6 +890,268 @@ func _test_npc_post_auction_determinism() -> void:
 	_assert_equal(int(gambler_choice["action"]), GameConstants.PostAuctionAction.OPEN, "도박사는 고위험 카드 개봉 선호")
 	_assert_equal(int(gambler_choice["seals_to_open"]), GameConstants.MAX_SEALS, "도박사는 세 번째 봉인까지 감수")
 
+func _test_negotiation_phase_and_generation() -> void:
+	var controller: GameFlowController = _new_controller(12001)
+	controller.request_advance()
+	_assert_equal(controller.run_state.current_phase, GameConstants.Phase.NEGOTIATION, "PRE_INFO 다음 단계는 NEGOTIATION")
+	_assert_true(controller.run_state.negotiation_offers.size() <= GameConstants.MAX_NEGOTIATION_OFFERS, "라운드당 협상 제안 최대 2개")
+	var issuers: Dictionary = {}
+	for offer: NegotiationOffer in controller.run_state.negotiation_offers:
+		var issuer: ActorState = controller.actor_by_id(offer.issuer_id)
+		_assert_true(issuer != null and issuer.alive, "살아 있는 NPC만 협상 제안")
+		_assert_true(not issuers.has(offer.issuer_id), "동일 NPC 중복 제안 없음")
+		issuers[offer.issuer_id] = true
+		_assert_equal(offer.expires_round, controller.run_state.current_round, "제안은 현재 라운드에 만료")
+	if controller.current_negotiation_offer() != null:
+		controller.request_advance()
+		_assert_equal(controller.run_state.current_phase, GameConstants.Phase.NEGOTIATION, "미처리 제안 중 경매 진입 차단")
+	while controller.current_negotiation_offer() != null:
+		_assert_true(controller.request_reject_offer(), "협상 제안 순차 처리")
+	_assert_true(controller.can_advance_negotiation(), "모든 제안 처리 후 경매 진행 가능")
+	controller.request_advance()
+	_assert_equal(controller.run_state.current_phase, GameConstants.Phase.AUCTION, "협상 종료 후 AUCTION 진입")
+	controller.free()
+
+	var no_offer: GameFlowController = _new_controller(12002)
+	for actor: ActorState in no_offer.actors:
+		if actor.actor_type == GameConstants.ActorType.NPC:
+			actor.alive = false
+	no_offer.run_state.current_phase = GameConstants.Phase.NEGOTIATION
+	no_offer.negotiation.begin_round(no_offer.actors, no_offer.knowledge_states)
+	_assert_equal(no_offer.run_state.negotiation_offers.size(), 0, "사망 NPC는 제안하지 않음")
+	_assert_true(no_offer.negotiation.can_advance(), "제안 0개면 협상 정상 완료")
+	no_offer.free()
+
+func _test_negotiation_determinism_and_rng_isolation() -> void:
+	var first_trace: Dictionary = _negotiation_trace(12010)
+	var second_trace: Dictionary = _negotiation_trace(12010)
+	_assert_equal(first_trace, second_trace, "같은 Seed에서 목표·제안·가격·Tell·감정 재현")
+
+	var with_negotiation: GameFlowController = _new_controller(12011)
+	var without_negotiation: GameFlowController = _new_controller(12011)
+	with_negotiation.request_advance()
+	_assert_equal(
+		with_negotiation.rng.randi_range(1, 100000),
+		without_negotiation.rng.randi_range(1, 100000),
+		"협상 RNG가 gameplay RNG 순서를 오염시키지 않음"
+	)
+	with_negotiation.free()
+	without_negotiation.free()
+
+	var catalog: NpcContentCatalog = NpcContentCatalog.new()
+	var profile_count: int = 0
+	var goal_controller: GameFlowController = _new_controller(12012)
+	for actor: ActorState in goal_controller.actors:
+		if actor.actor_type != GameConstants.ActorType.NPC:
+			continue
+		profile_count += 1
+		var profile: NpcCharacterProfile = catalog.profile(actor.character_id)
+		var state: NpcRunState = goal_controller.npc_run_state_for(actor.actor_id)
+		_assert_true(profile != null, "%s 프로필 데이터 로드" % actor.display_name)
+		_assert_true(profile.secret_goal_pool.has(String(state.secret_goal_id)), "%s 목표가 캐릭터별 풀에서 선택" % actor.display_name)
+	_assert_equal(profile_count, 3, "마라·볼트·세라 프로필 3개")
+	goal_controller.npc_run_state_for(&"npc_3").secret_goal_id = &"volt_bid_total"
+	var goal_offer: NegotiationOffer = goal_controller.negotiation.build_offer(&"npc_3")
+	_assert_equal(goal_offer.offer_type, GameConstants.OfferType.SKIP_AUCTION, "볼트의 누적 입찰 목표가 경쟁 제거 제안에 반영")
+	goal_controller.free()
+
+func _test_offer_responses_and_relationships() -> void:
+	var accepted: GameFlowController = _new_controller(12020)
+	var skip_offer: NegotiationOffer = _install_offer(accepted, &"npc_3", GameConstants.OfferType.SKIP_AUCTION)
+	var issuer: ActorState = accepted.actor_by_id(&"npc_3")
+	var player: ActorState = accepted.actor_by_id(GameConstants.PLAYER_ID)
+	var issuer_gold: int = issuer.gold
+	var player_gold: int = player.gold
+	_assert_true(accepted.request_accept_offer(), "입찰 포기 제안 수락")
+	_assert_equal(player.gold, player_gold + skip_offer.offered_gold, "수락 시 플레이어 보상 지급")
+	_assert_equal(issuer.gold, issuer_gold - skip_offer.offered_gold, "수락 시 NPC 골드 차감")
+	_assert_true(accepted.run_state.player_forced_pass, "입찰 포기 조건이 현재 경매에 적용")
+	_assert_equal(accepted.npc_run_state_for(&"npc_3").relationship_score, 1, "제안 수락 시 관계 증가")
+	_assert_true(not accepted.request_accept_offer(), "해결된 제안 중복 처리 방지")
+	accepted.request_advance()
+	_assert_true(accepted.actor_by_id(GameConstants.PLAYER_ID).has_passed, "수락 후 경매 시작 시 플레이어 자동 패스")
+	accepted.free()
+
+	var rejected: GameFlowController = _new_controller(12021)
+	var rejected_offer: NegotiationOffer = _install_offer(rejected, &"npc_1", GameConstants.OfferType.KEEP_SEALED)
+	var rejected_player_gold: int = rejected.actor_by_id(GameConstants.PLAYER_ID).gold
+	_assert_true(rejected.request_reject_offer(), "협상 제안 거절")
+	_assert_true(rejected_offer.rejected and rejected_offer.resolved, "거절 제안 해결 상태 기록")
+	_assert_equal(rejected.actor_by_id(GameConstants.PLAYER_ID).gold, rejected_player_gold, "거절 시 보상과 상태 변화 없음")
+	_assert_equal(rejected.npc_run_state_for(&"npc_1").relationship_score, -1, "제안 거절 시 관계 감소")
+	rejected.free()
+
+	var countered: GameFlowController = _new_controller(12022)
+	var counter_offer: NegotiationOffer = _install_offer(countered, &"npc_3", GameConstants.OfferType.SKIP_AUCTION)
+	var counter_amount: int = counter_offer.offered_gold + GameConstants.COUNTER_INCREMENT
+	counter_offer.acceptance_threshold = counter_amount
+	_assert_true(countered.request_counter_offer(counter_amount), "한 번의 가격 재제안 처리")
+	_assert_equal(counter_offer.counter_count, 1, "가격 재제안 횟수 1회 기록")
+	_assert_true(counter_offer.accepted, "수락 기준 이내 재제안 수락")
+	_assert_true(not countered.request_counter_offer(counter_amount + 50), "해결 후 추가 재제안 불가")
+	countered.free()
+
+	var invalid_counter: GameFlowController = _new_controller(12023)
+	var invalid_offer: NegotiationOffer = _install_offer(invalid_counter, &"npc_1", GameConstants.OfferType.KEEP_SEALED)
+	var invalid_issuer: ActorState = invalid_counter.actor_by_id(&"npc_1")
+	_assert_true(not invalid_counter.request_counter_offer(invalid_issuer.gold + 50), "NPC 보유 골드 초과 재제안 불가")
+	_assert_equal(invalid_offer.counter_count, 0, "유효하지 않은 재제안은 횟수 미소비")
+	invalid_offer.acceptance_threshold = invalid_offer.offered_gold
+	_assert_true(invalid_counter.request_counter_offer(invalid_offer.offered_gold + 50), "기준 초과 재제안도 한 번 처리")
+	_assert_true(invalid_offer.rejected, "수락 기준 초과 재제안 거절")
+	invalid_counter.free()
+
+	var bounded: NpcRunState = NpcRunState.create(GameConstants.CHARACTER_MARA, &"goal")
+	_assert_equal(bounded.change_relationship(10), GameConstants.RELATIONSHIP_MAX, "관계 점수 상한 +2")
+	_assert_equal(bounded.change_relationship(-10), GameConstants.RELATIONSHIP_MIN, "관계 점수 하한 -2")
+	var restarted: GameFlowController = _new_controller(12024)
+	_assert_equal(restarted.npc_run_state_for(&"npc_1").relationship_score, 0, "새 런에서 관계 점수 초기화")
+	restarted.free()
+
+func _test_offer_type_effects() -> void:
+	var buying: GameFlowController = _new_controller(12030)
+	var buying_player: ActorState = buying.actor_by_id(GameConstants.PLAYER_ID)
+	var buying_npc: ActorState = buying.actor_by_id(&"npc_3")
+	var owned: CardInstance = buying.effects.acquire_card(CardCatalog.by_id(&"broken_chalice"), buying_player, buying.actors)
+	var buy_offer: NegotiationOffer = _install_offer(buying, &"npc_3", GameConstants.OfferType.BUY_CARD)
+	_assert_equal(buy_offer.offer_type, GameConstants.OfferType.BUY_CARD, "카드 구매 제안 생성")
+	_assert_true(buying.request_accept_offer(), "카드 구매 제안 수락")
+	_assert_equal(owned.owner_id, buying_npc.actor_id, "카드 구매 수락 시 소유권 이전")
+	_assert_true(buying_player.instance_by_id(owned.instance_id) == null, "구매 후 플레이어 인벤토리에서 제거")
+	buying.free()
+
+	var sealed: GameFlowController = _new_controller(12031)
+	var sealed_offer: NegotiationOffer = _install_offer(sealed, &"npc_1", GameConstants.OfferType.KEEP_SEALED)
+	_assert_true(sealed.request_accept_offer(), "개봉 금지 제안 수락")
+	_assert_true(sealed.run_state.temporary_negotiation_warning.contains("봉인"), "개봉 금지 임시 경고 유지")
+	_assert_equal(sealed_offer.requested_action, GameConstants.RequestedAction.DO_NOT_OPEN, "개봉 금지 요청 행동 매핑")
+	sealed.free()
+
+	var shared: GameFlowController = _new_controller(12032)
+	var source: KnowledgeState = _knowledge_with_clue(PackedStringArray(["information"]), 300, 100)
+	source.actor_id = &"npc_2"
+	source.card_instance_id = shared.run_state.current_lot_id
+	var target: KnowledgeState = KnowledgeState.create(GameConstants.PLAYER_ID, shared.run_state.current_lot_id)
+	shared.knowledge_states[&"npc_2"] = source
+	shared.knowledge_states[GameConstants.PLAYER_ID] = target
+	var share_offer: NegotiationOffer = _install_offer(shared, &"npc_2", GameConstants.OfferType.SHARE_INFORMATION)
+	_assert_equal(share_offer.offer_type, GameConstants.OfferType.SHARE_INFORMATION, "정보 교환 제안 생성")
+	_assert_true(shared.request_accept_offer(), "정보 교환 제안 수락")
+	_assert_true(target.knows(&"test_clue"), "정보 교환으로 플레이어에게 단서 전달")
+	_assert_true(shared.run_state.player_forced_pass, "정보 교환의 경매 패스 조건 적용")
+	shared.free()
+
+	var held: GameFlowController = _new_controller(12033)
+	var hold_offer: NegotiationOffer = _install_offer(held, &"npc_1", GameConstants.OfferType.HOLD_CARD)
+	_assert_true(held.request_accept_offer(), "카드 보관 요청 수락")
+	_assert_true(held.run_state.temporary_negotiation_warning.contains("보관"), "카드 보관 임시 상태 표시")
+	_assert_equal(hold_offer.requested_action, GameConstants.RequestedAction.KEEP_CARD, "보관 요청 행동 매핑")
+	held.free()
+
+func _test_character_emotion_tells_and_visibility() -> void:
+	var emotional: GameFlowController = _new_controller(12040)
+	emotional.actor_by_id(&"npc_1").hp = 1
+	emotional.request_advance()
+	_assert_equal(emotional.npc_run_state_for(&"npc_1").emotion, GameConstants.Emotion.AFRAID, "HP 1 마라는 AFRAID")
+	_assert_true(
+		emotional.npc_run_state_for(&"npc_3").emotion in [GameConstants.Emotion.INTERESTED, GameConstants.Emotion.SMUG, GameConstants.Emotion.NERVOUS],
+		"볼트 감정이 평가 상태에 따라 갱신"
+	)
+	emotional.free()
+
+	var catalog: NpcContentCatalog = NpcContentCatalog.new()
+	var tell_ids: Dictionary = {}
+	for character_id: StringName in [GameConstants.CHARACTER_MARA, GameConstants.CHARACTER_VOLT, GameConstants.CHARACTER_SERA]:
+		var profile: NpcCharacterProfile = catalog.profile(character_id)
+		var tells: Array[Dictionary] = catalog.tells_for(profile, &"")
+		_assert_true(not tells.is_empty(), "%s 행동 신호 풀 존재" % character_id)
+		for tell: Dictionary in tells:
+			_assert_true(float(tell.get("reliability", 1.0)) < 1.0, "%s Tell reliability가 100%% 미만" % tell.get("id", ""))
+			tell_ids[StringName(str(tell.get("id", "")))] = character_id
+	_assert_equal(tell_ids.size(), 9, "캐릭터별 행동 신호 풀 분리")
+
+	var packed_scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
+	var ui: Control = packed_scene.instantiate() as Control
+	root.add_child(ui)
+	var ui_controller: GameFlowController = ui.get_node("GameFlowController") as GameFlowController
+	var participants: ParticipantPanel = ui.get_node("%ParticipantPanel") as ParticipantPanel
+	var negotiation_panel: NegotiationPanel = ui.get_node("%NegotiationPanel") as NegotiationPanel
+	var normal_text: String = participants.combined_text()
+	_assert_true(normal_text.contains("마라") and normal_text.contains("볼트") and normal_text.contains("세라"), "일반 UI에 캐릭터 이름 표시")
+	_assert_true(normal_text.contains("감정") and normal_text.contains("관계") and normal_text.contains("비장"), "참가자 패널에 감정·관계·비장의 수단 표시")
+	for actor: ActorState in ui_controller.actors:
+		if actor.actor_type == GameConstants.ActorType.NPC:
+			var goal: Dictionary = ui_controller.negotiation.goal_for(actor.actor_id)
+			_assert_true(not normal_text.contains(str(goal.get("description", ""))), "일반 UI에서 숨겨진 목표 비공개")
+	ui_controller.request_advance()
+	ui.refresh_ui()
+	_assert_true(negotiation_panel.visible, "NEGOTIATION UI 표시")
+	_assert_true(not negotiation_panel.displayed_text().contains(ui_controller.run_state.current_card.description), "협상 UI에서 실제 효과 설명 숨김")
+	_assert_true(ui_controller.debug_information_report().contains("goal="), "DEBUG에서 숨겨진 목표 표시")
+	_assert_true(ui_controller.debug_information_report().contains("NEGOTIATION RNG SEED"), "DEBUG에서 협상 RNG 표시")
+	ui.free()
+
+func _test_emergency_abilities() -> void:
+	var mara_controller: GameFlowController = _new_controller(12050)
+	var mara: ActorState = mara_controller.actor_by_id(&"npc_1")
+	var mara_card: CardInstance = mara_controller.effects.acquire_card(CardCatalog.by_id(&"broken_chalice"), mara, mara_controller.actors)
+	var mara_gold: int = mara.gold
+	_assert_true(mara_controller.negotiation.try_use_emergency(mara.actor_id, true), "마라 긴급 소각 사용")
+	_assert_true(mara_card.destroyed and mara.instance_by_id(mara_card.instance_id) == null, "긴급 소각으로 봉인 카드 제거")
+	_assert_equal(mara.gold, mara_gold, "긴급 소각 비용 면제")
+	_assert_true(not mara_controller.negotiation.try_use_emergency(mara.actor_id, true), "마라 비장의 수단 재사용 불가")
+	mara_controller.free()
+
+	var volt_controller: GameFlowController = _new_controller(12051)
+	var volt: ActorState = volt_controller.actor_by_id(&"npc_3")
+	volt.hp = 2
+	volt.gold = 100
+	_assert_true(volt_controller.negotiation.try_use_emergency(volt.actor_id, true), "볼트 생명 담보 사용")
+	_assert_equal(volt.hp, 1, "생명 담보 체력 1 지불")
+	_assert_equal(volt.gold, 500, "생명 담보 400 G 획득")
+	_assert_true(not volt_controller.negotiation.try_use_emergency(volt.actor_id, true), "볼트 비장의 수단 재사용 불가")
+	volt_controller.free()
+
+	var sera_controller: GameFlowController = _new_controller(12052)
+	var player_knowledge: KnowledgeState = _knowledge_with_clue(PackedStringArray(["information"]), 300, 100)
+	player_knowledge.actor_id = GameConstants.PLAYER_ID
+	player_knowledge.card_instance_id = sera_controller.run_state.current_lot_id
+	var sera_knowledge: KnowledgeState = KnowledgeState.create(&"npc_2", sera_controller.run_state.current_lot_id)
+	sera_controller.knowledge_states[GameConstants.PLAYER_ID] = player_knowledge
+	sera_controller.knowledge_states[&"npc_2"] = sera_knowledge
+	sera_controller.negotiation.begin_round(sera_controller.actors, sera_controller.knowledge_states)
+	_assert_true(sera_controller.negotiation.try_use_emergency(&"npc_2", true), "세라 정보 절취 사용")
+	_assert_true(sera_knowledge.knows(&"test_clue"), "정보 절취로 플레이어 단서 획득")
+	_assert_true(not sera_controller.negotiation.try_use_emergency(&"npc_2", true), "세라 비장의 수단 재사용 불가")
+	sera_controller.free()
+
+func _test_dialogue_data_and_rng_isolation() -> void:
+	var first: NpcDialogueService = NpcDialogueService.new(12060)
+	var second: NpcDialogueService = NpcDialogueService.new(12060)
+	for character_id: StringName in [GameConstants.CHARACTER_MARA, GameConstants.CHARACTER_VOLT, GameConstants.CHARACTER_SERA]:
+		_assert_true(first.line_count(character_id) >= 20, "%s 대사 데이터 20줄 이상" % character_id)
+		_assert_true(first.categories(character_id).has("negotiation_start"), "%s 협상 대사 카테고리 분리" % character_id)
+	var first_lines: PackedStringArray = []
+	var second_lines: PackedStringArray = []
+	for _index: int in range(6):
+		first_lines.append(first.select_line(GameConstants.CHARACTER_SERA, &"negotiation_start"))
+		second_lines.append(second.select_line(GameConstants.CHARACTER_SERA, &"negotiation_start"))
+	_assert_equal(first_lines, second_lines, "같은 Seed에서 협상 대사 재현")
+	_assert_true(
+		first.select_line(GameConstants.CHARACTER_MARA, &"greeting")
+		!= first.select_line(GameConstants.CHARACTER_VOLT, &"greeting"),
+		"캐릭터별 대사 풀 구분"
+	)
+	var dialogue_source: String = FileAccess.get_file_as_string("res://scripts/ai/npc_dialogue_service.gd")
+	_assert_true(dialogue_source.contains("npc_dialogue.json"), "협상 대사를 외부 데이터에서 로드")
+	_assert_true(not dialogue_source.contains("그 봉인은 열지 마요"), "협상 대사를 코드에 하드코딩하지 않음")
+	var gameplay_first: CentralRng = CentralRng.new(12061)
+	var gameplay_second: CentralRng = CentralRng.new(12061)
+	var dialogue: NpcDialogueService = NpcDialogueService.new(12061)
+	for _index: int in range(10):
+		dialogue.select_line(GameConstants.CHARACTER_VOLT, &"interest")
+	_assert_equal(gameplay_first.randi_range(1, 100000), gameplay_second.randi_range(1, 100000), "dialogue RNG가 gameplay RNG에 영향 없음")
+
 func _test_player_death_is_defeat() -> void:
 	var controller: GameFlowController = _new_controller(303)
 	var player: ActorState = controller.actor_by_id(GameConstants.PLAYER_ID)
@@ -914,6 +1199,11 @@ func _simulate_run(seed_value: int, capture_trace: bool) -> Dictionary:
 		match controller.run_state.current_phase:
 			GameConstants.Phase.PRE_INFO:
 				controller.request_advance()
+			GameConstants.Phase.NEGOTIATION:
+				if controller.current_negotiation_offer() != null:
+					controller.request_reject_offer()
+				elif controller.can_advance_negotiation():
+					controller.request_advance()
 			GameConstants.Phase.AUCTION:
 				var player: ActorState = controller.actor_by_id(GameConstants.PLAYER_ID)
 				var required: int = controller.current_required_bid()
@@ -1004,6 +1294,56 @@ func _npc_post_trace(
 	}
 	controller.free()
 	return result
+
+func _negotiation_trace(seed_value: int) -> Dictionary:
+	var controller: GameFlowController = _new_controller(seed_value)
+	controller.request_advance()
+	var offers: Array[String] = []
+	for offer: NegotiationOffer in controller.run_state.negotiation_offers:
+		offers.append(
+			"%s:%d:%d:%s:%s:%d"
+			% [
+				offer.issuer_id,
+				offer.offer_type,
+				offer.offered_gold,
+				offer.offered_clue_id,
+				offer.tell_text,
+				offer.acceptance_threshold,
+			]
+		)
+	var npc_states: Array[String] = []
+	for actor: ActorState in controller.actors:
+		if actor.actor_type != GameConstants.ActorType.NPC:
+			continue
+		var state: NpcRunState = controller.npc_run_state_for(actor.actor_id)
+		npc_states.append(
+			"%s:%s:%d:%s"
+			% [actor.actor_id, state.secret_goal_id, state.emotion, state.recent_tell_id]
+		)
+	var result: Dictionary = {
+		"offers": offers,
+		"states": npc_states,
+		"negotiation_seed": controller.negotiation.negotiation_seed,
+		"dialogue_seed": controller.dialogue_service.dialogue_seed,
+	}
+	controller.free()
+	return result
+
+func _install_offer(
+	controller: GameFlowController,
+	issuer_id: StringName,
+	offer_type: int
+) -> NegotiationOffer:
+	controller.run_state.current_phase = GameConstants.Phase.NEGOTIATION
+	controller.negotiation.begin_round(controller.actors, controller.knowledge_states)
+	controller.run_state.negotiation_offers.clear()
+	controller.run_state.current_offer_index = 0
+	controller.run_state.negotiation_complete = false
+	controller.run_state.player_forced_pass = false
+	controller.run_state.temporary_negotiation_warning = ""
+	var offer: NegotiationOffer = controller.negotiation.build_offer(issuer_id, offer_type)
+	controller.run_state.negotiation_offers.append(offer)
+	return offer
 
 func _new_controller(seed_value: int) -> GameFlowController:
 	var controller: GameFlowController = GameFlowController.new()

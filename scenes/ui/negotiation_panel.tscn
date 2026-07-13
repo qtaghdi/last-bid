@@ -1,0 +1,95 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/negotiation_panel.gd" id="1"]
+
+[node name="NegotiationPanel" type="PanelContainer"]
+custom_minimum_size = Vector2(430, 360)
+script = ExtResource("1")
+
+[node name="Column" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="Column"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Column/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"GoldLabel"
+theme_override_font_sizes/font_size = 18
+text = "NEGOTIATION"
+
+[node name="ProgressLabel" type="Label" parent="Column/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "OFFER 1 / 2"
+
+[node name="IssuerLabel" type="Label" parent="Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "마라"
+
+[node name="StateLabel" type="Label" parent="Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "감정: 긴장    관계: +0"
+
+[node name="TellLabel" type="Label" parent="Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(386, 0)
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "행동 신호 · 손끝이 가늘게 떨린다."
+autowrap_mode = 2
+
+[node name="DialogueLabel" type="RichTextLabel" parent="Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(386, 58)
+layout_mode = 2
+bbcode_enabled = true
+fit_content = false
+scroll_active = false
+text = "“그 봉인은 열지 마요.”"
+
+[node name="OfferLabel" type="Label" parent="Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(386, 80)
+layout_mode = 2
+text = "개봉 금지 · 현재 경매 물품\n제공: 100 G\n요청: 이번 라운드 봉인 유지"
+autowrap_mode = 2
+
+[node name="ResultLabel" type="Label" parent="Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(386, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"MutedLabel"
+text = "협상 제안을 확인하세요."
+autowrap_mode = 2
+
+[node name="Actions" type="HBoxContainer" parent="Column"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="AcceptButton" type="Button" parent="Column/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 42)
+layout_mode = 2
+text = "수락"
+
+[node name="RejectButton" type="Button" parent="Column/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 42)
+layout_mode = 2
+text = "거절"
+
+[node name="CounterButton" type="Button" parent="Column/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "가격 올리기 · 150 G"
