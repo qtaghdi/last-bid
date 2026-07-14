@@ -278,7 +278,37 @@ func _refresh() -> void:
 	if controller == null or controller.run_state == null:
 		return
 	var run: RunState = controller.run_state
-	top_hud.render(run, _debug_mode, controller.active_promise_summary())
+	var player: ActorState = controller.actor_by_id(GameConstants.PLAYER_ID)
+	var alive_count: int = 0
+	for actor: ActorState in controller.actors:
+		if actor.alive:
+			alive_count += 1
+	var rule_changed: bool = run.current_min_increment != GameConstants.DEFAULT_MIN_INCREMENT
+	var rule_summary: String = (
+		"최소 인상 %d G" % run.current_min_increment
+		if rule_changed
+		else "기본 경매"
+	)
+	var rule_tooltip: String = (
+		"현재 라운드에 공개 적용 중인 최소 인상액은 %d G입니다." % run.current_min_increment
+		if rule_changed
+		else "공개된 전역 규칙 변경이 없습니다. 기본 최소 인상액은 %d G입니다."
+		% GameConstants.DEFAULT_MIN_INCREMENT
+	)
+	top_hud.render(
+		run,
+		player.hp if player != null else -1,
+		player.max_hp if player != null else 0,
+		player.gold if player != null else 0,
+		player.alive if player != null else false,
+		alive_count,
+		controller.actors.size(),
+		rule_summary,
+		rule_tooltip,
+		rule_changed,
+		_debug_mode,
+		controller.active_promise_summary()
+	)
 	active_promise_panel.render(controller)
 	participant_panel.render(controller, _debug_mode)
 	card_info_panel.render(

@@ -3,54 +3,201 @@
 [ext_resource type="Script" path="res://scripts/ui/top_hud.gd" id="1"]
 
 [node name="TopHud" type="PanelContainer"]
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 104)
 script = ExtResource("1")
 
-[node name="Row" type="HBoxContainer" parent="."]
+[node name="Column" type="VBoxContainer" parent="."]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 5
 
-[node name="RoundLabel" type="Label" parent="Row"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(126, 0)
+[node name="PrimaryRow" type="HBoxContainer" parent="Column"]
 layout_mode = 2
-theme_type_variation = &"GoldLabel"
-theme_override_font_sizes/font_size = 18
-text = "ROUND 1 / 10"
-vertical_alignment = 1
+theme_override_constants/separation = 8
 
-[node name="PhaseLabel" type="Label" parent="Row"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(122, 0)
+[node name="PhaseBadge" type="PanelContainer" parent="Column/PrimaryRow"]
+custom_minimum_size = Vector2(166, 44)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_type_variation = &"HudPhaseBadge"
+
+[node name="PhaseColumn" type="VBoxContainer" parent="Column/PrimaryRow/PhaseBadge"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="PhaseEyebrow" type="Label" parent="Column/PrimaryRow/PhaseBadge/PhaseColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"EyebrowLabel"
+theme_override_font_sizes/font_size = 11
+text = "CURRENT PHASE"
+
+[node name="PhaseLabel" type="Label" parent="Column/PrimaryRow/PhaseBadge/PhaseColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
 text = "사전 정보"
-vertical_alignment = 1
+text_overrun_behavior = 3
 
-[node name="RoundProgress" type="ProgressBar" parent="Row"]
+[node name="RoundBlock" type="PanelContainer" parent="Column/PrimaryRow"]
+custom_minimum_size = Vector2(132, 44)
+layout_mode = 2
+theme_type_variation = &"HudStatPanel"
+
+[node name="RoundColumn" type="VBoxContainer" parent="Column/PrimaryRow/RoundBlock"]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="RoundHeader" type="HBoxContainer" parent="Column/PrimaryRow/RoundBlock/RoundColumn"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="RoundEyebrow" type="Label" parent="Column/PrimaryRow/RoundBlock/RoundColumn/RoundHeader"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 11
+text = "ROUND"
+
+[node name="RoundLabel" type="Label" parent="Column/PrimaryRow/RoundBlock/RoundColumn/RoundHeader"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(90, 8)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"GoldLabel"
+theme_override_font_sizes/font_size = 16
+text = "1 / 10"
+horizontal_alignment = 2
+
+[node name="RoundProgress" type="ProgressBar" parent="Column/PrimaryRow/RoundBlock/RoundColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 6)
+layout_mode = 2
 theme_type_variation = &"AuctionProgressIndicator"
 max_value = 10.0
 value = 1.0
 show_percentage = false
 
-[node name="InfoLabel" type="Label" parent="Row"]
+[node name="HpBlock" type="PanelContainer" parent="Column/PrimaryRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(74, 0)
+custom_minimum_size = Vector2(166, 44)
+layout_mode = 2
+theme_type_variation = &"HudStatPanel"
+
+[node name="HpColumn" type="VBoxContainer" parent="Column/PrimaryRow/HpBlock"]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="HpLabel" type="Label" parent="Column/PrimaryRow/HpBlock/HpColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "HP 3 / 3"
+text_overrun_behavior = 3
+
+[node name="HpBar" type="ProgressBar" parent="Column/PrimaryRow/HpBlock/HpColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(138, 7)
+layout_mode = 2
+max_value = 3.0
+value = 3.0
+show_percentage = false
+
+[node name="GoldBlock" type="PanelContainer" parent="Column/PrimaryRow"]
+custom_minimum_size = Vector2(126, 44)
+layout_mode = 2
+theme_type_variation = &"HudStatPanel"
+
+[node name="GoldColumn" type="VBoxContainer" parent="Column/PrimaryRow/GoldBlock"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="GoldEyebrow" type="Label" parent="Column/PrimaryRow/GoldBlock/GoldColumn"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 11
+text = "GOLD"
+
+[node name="GoldRow" type="HBoxContainer" parent="Column/PrimaryRow/GoldBlock/GoldColumn"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="GoldValueLabel" type="Label" parent="Column/PrimaryRow/GoldBlock/GoldColumn/GoldRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"BrightGoldLabel"
+theme_override_font_sizes/font_size = 18
+text = "800"
+text_overrun_behavior = 3
+horizontal_alignment = 2
+
+[node name="GoldUnitLabel" type="Label" parent="Column/PrimaryRow/GoldBlock/GoldColumn/GoldRow"]
 layout_mode = 2
 theme_type_variation = &"GoldLabel"
-text = "INFO 2"
+theme_override_font_sizes/font_size = 12
+text = "G"
+vertical_alignment = 2
+
+[node name="InfoBlock" type="PanelContainer" parent="Column/PrimaryRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(118, 44)
+layout_mode = 2
+theme_type_variation = &"HudStatPanel"
+
+[node name="InfoLabel" type="Label" parent="Column/PrimaryRow/InfoBlock"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GoldLabel"
+theme_override_font_sizes/font_size = 14
+text = "◆ 정보 2"
+text_overrun_behavior = 3
 vertical_alignment = 1
 
-[node name="PromiseBadge" type="PanelContainer" parent="Row"]
-custom_minimum_size = Vector2(200, 0)
+[node name="PrimarySpacer" type="Control" parent="Column/PrimaryRow"]
 layout_mode = 2
-theme_type_variation = &"StatusBadge"
+size_flags_horizontal = 3
+mouse_filter = 2
 
-[node name="PromiseLabel" type="Label" parent="Row/PromiseBadge"]
+[node name="SettingsButton" type="Button" parent="Column/PrimaryRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(70, 38)
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"IconButton"
+text = "설정"
+
+[node name="DebugToggle" type="CheckButton" parent="Column/PrimaryRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(84, 38)
+layout_mode = 2
+size_flags_vertical = 4
+text = "DEBUG"
+
+[node name="SecondaryRow" type="HBoxContainer" parent="Column"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="RuleBadge" type="PanelContainer" parent="Column/SecondaryRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"HudSecondaryPanel"
+
+[node name="RuleLabel" type="Label" parent="Column/SecondaryRow/RuleBadge"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 12
+text = "규칙 · 기본 경매"
+text_overrun_behavior = 3
+vertical_alignment = 1
+
+[node name="PromiseBadge" type="PanelContainer" parent="Column/SecondaryRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(210, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"HudSecondaryPanel"
+
+[node name="PromiseLabel" type="Label" parent="Column/SecondaryRow/PromiseBadge"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"GoldLabel"
@@ -59,24 +206,22 @@ text = "약속 없음"
 text_overrun_behavior = 3
 vertical_alignment = 1
 
-[node name="SeedLabel" type="Label" parent="Row"]
+[node name="SurvivorLabel" type="Label" parent="Column/SecondaryRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(122, 0)
+custom_minimum_size = Vector2(92, 0)
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 12
+text = "생존 4 / 4"
+vertical_alignment = 1
+
+[node name="SeedLabel" type="Label" parent="Column/SecondaryRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(116, 0)
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
 theme_override_font_sizes/font_size = 12
 text = "SEED 20260710"
+text_overrun_behavior = 3
+horizontal_alignment = 2
 vertical_alignment = 1
-
-[node name="SettingsButton" type="Button" parent="Row"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(78, 36)
-layout_mode = 2
-theme_type_variation = &"IconButton"
-text = "설정"
-
-[node name="DebugToggle" type="CheckButton" parent="Row"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(84, 36)
-layout_mode = 2
-text = "DEBUG"
