@@ -3,63 +3,80 @@
 [ext_resource type="Script" path="res://scripts/ui/top_hud.gd" id="1"]
 
 [node name="TopHud" type="PanelContainer"]
-custom_minimum_size = Vector2(0, 64)
+custom_minimum_size = Vector2(0, 58)
 script = ExtResource("1")
 
 [node name="Row" type="HBoxContainer" parent="."]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 10
 
 [node name="RoundLabel" type="Label" parent="Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 0)
+custom_minimum_size = Vector2(126, 0)
 layout_mode = 2
 theme_type_variation = &"GoldLabel"
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "ROUND 1 / 10"
 vertical_alignment = 1
 
 [node name="PhaseLabel" type="Label" parent="Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 0)
+custom_minimum_size = Vector2(122, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "사전 정보"
 vertical_alignment = 1
 
-[node name="Spacer" type="Control" parent="Row"]
+[node name="RoundProgress" type="ProgressBar" parent="Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 8)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"AuctionProgressIndicator"
+max_value = 10.0
+value = 1.0
+show_percentage = false
 
 [node name="InfoLabel" type="Label" parent="Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(90, 0)
+custom_minimum_size = Vector2(74, 0)
 layout_mode = 2
 theme_type_variation = &"GoldLabel"
 text = "INFO 2"
 vertical_alignment = 1
 
-[node name="SeedTitle" type="Label" parent="Row"]
+[node name="PromiseBadge" type="PanelContainer" parent="Row"]
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
-text = "SEED"
+theme_type_variation = &"StatusBadge"
+
+[node name="PromiseLabel" type="Label" parent="Row/PromiseBadge"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GoldLabel"
+theme_override_font_sizes/font_size = 12
+text = "약속 없음"
+text_overrun_behavior = 3
 vertical_alignment = 1
 
-[node name="SeedInput" type="LineEdit" parent="Row"]
+[node name="SeedLabel" type="Label" parent="Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(125, 38)
+custom_minimum_size = Vector2(122, 0)
 layout_mode = 2
-alignment = 2
-max_length = 18
-text = "20260710"
+theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 12
+text = "SEED 20260710"
+vertical_alignment = 1
 
-[node name="NewRunButton" type="Button" parent="Row"]
+[node name="SettingsButton" type="Button" parent="Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(90, 38)
+custom_minimum_size = Vector2(78, 36)
 layout_mode = 2
-text = "새 게임"
+theme_type_variation = &"IconButton"
+text = "설정"
 
 [node name="DebugToggle" type="CheckButton" parent="Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(100, 38)
+custom_minimum_size = Vector2(84, 36)
 layout_mode = 2
 text = "DEBUG"

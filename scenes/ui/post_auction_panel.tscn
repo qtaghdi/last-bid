@@ -1,23 +1,26 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/post_auction_panel.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/ui/seal_indicator.tscn" id="2"]
 
 [node name="PostAuctionPanel" type="PanelContainer"]
-custom_minimum_size = Vector2(600, 430)
+custom_minimum_size = Vector2(450, 398)
+theme_type_variation = &"CardPanel"
 script = ExtResource("1")
 
 [node name="Column" type="VBoxContainer" parent="."]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="Title" type="Label" parent="Column"]
 layout_mode = 2
-theme_type_variation = &"GoldLabel"
+theme_type_variation = &"EyebrowLabel"
 theme_override_font_sizes/font_size = 15
 text = "POST AUCTION · 낙찰 후 처리"
 
 [node name="ResultLabel" type="Label" parent="Column"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(410, 0)
 layout_mode = 2
 theme_type_variation = &"BrightGoldLabel"
 theme_override_font_sizes/font_size = 22
@@ -26,13 +29,31 @@ autowrap_mode = 2
 
 [node name="OwnershipLabel" type="Label" parent="Column"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(410, 0)
 layout_mode = 2
 text = "공개 상태"
 autowrap_mode = 2
 
+[node name="SealHeader" type="HBoxContainer" parent="Column"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SealIndicator" parent="Column/SealHeader" instance=ExtResource("2")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AccidentLabel" type="Label" parent="Column/SealHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"DangerLabel"
+theme_override_font_sizes/font_size = 12
+text = "다음 봉인 사고 확률 · 0%"
+vertical_alignment = 1
+
 [node name="SealStatus" type="RichTextLabel" parent="Column"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 105)
+custom_minimum_size = Vector2(410, 60)
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
@@ -41,7 +62,7 @@ scroll_active = true
 
 [node name="ResultMessage" type="Label" parent="Column"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 42)
+custom_minimum_size = Vector2(410, 34)
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
 text = "처리 결과"
@@ -55,28 +76,34 @@ theme_override_constants/separation = 6
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
 text = "봉인 1 열기"
 
 [node name="KeepButton" type="Button" parent="Column/Actions"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_type_variation = &"SecondaryButton"
 text = "보관"
 
 [node name="SellButton" type="Button" parent="Column/Actions"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_type_variation = &"SecondaryButton"
 text = "판매"
 
 [node name="BurnButton" type="Button" parent="Column/Actions"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_type_variation = &"DangerButton"
 text = "소각"
 
-[node name="SaleControls" type="HBoxContainer" parent="Column"]
+[node name="SaleControls" type="GridContainer" parent="Column"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+columns = 2
 
 [node name="BuyerOption" type="OptionButton" parent="Column/SaleControls"]
 unique_name_in_owner = true
@@ -99,8 +126,17 @@ custom_minimum_size = Vector2(175, 38)
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="InterestLabel" type="Label" parent="Column/SaleControls"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "수락 가능성 · 보통"
+vertical_alignment = 1
+
 [node name="OfferButton" type="Button" parent="Column/SaleControls"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(88, 38)
 layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
 text = "제안"

@@ -221,6 +221,19 @@ func recent_betrayal_by(actor_id: StringName) -> bool:
 func active_promise_summary() -> String:
 	return promise_manager.active_summary_text() if promise_manager != null else "활성 약속 없음"
 
+func promise_violation_warning(
+	action: StringName,
+	target_instance_id: StringName = &"",
+	target_actor_id: StringName = &""
+) -> String:
+	if promise_manager == null:
+		return ""
+	return promise_manager.player_violation_warning(
+		action,
+		target_instance_id,
+		target_actor_id
+	)
+
 func request_fulfill_promise(promise_id: StringName) -> bool:
 	if promise_manager == null:
 		return false

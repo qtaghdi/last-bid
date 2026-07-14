@@ -3,7 +3,8 @@
 [ext_resource type="Script" path="res://scripts/ui/result_panel.gd" id="1"]
 
 [node name="RunResultPanel" type="PanelContainer"]
-custom_minimum_size = Vector2(560, 430)
+custom_minimum_size = Vector2(560, 440)
+theme_type_variation = &"Modal"
 script = ExtResource("1")
 
 [node name="Column" type="VBoxContainer" parent="."]
@@ -12,19 +13,31 @@ theme_override_constants/separation = 16
 
 [node name="ResultLabel" type="Label" parent="Column"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
 text = "승리"
 horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="StatsLabel" type="Label" parent="Column"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 0)
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_font_sizes/font_size = 19
 text = "결과 통계"
 horizontal_alignment = 1
 vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="BetrayalLabel" type="Label" parent="Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "주요 배신 기록 · 없음"
+horizontal_alignment = 1
 autowrap_mode = 2
 
 [node name="Actions" type="HBoxContainer" parent="Column"]
@@ -36,10 +49,19 @@ alignment = 1
 unique_name_in_owner = true
 custom_minimum_size = Vector2(190, 46)
 layout_mode = 2
+theme_type_variation = &"PrimaryButton"
 text = "같은 Seed로 다시"
 
 [node name="NewSeedButton" type="Button" parent="Column/Actions"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 46)
 layout_mode = 2
+theme_type_variation = &"SecondaryButton"
 text = "새 Seed로 시작"
+
+[node name="MainMenuButton" type="Button" parent="Column/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 46)
+layout_mode = 2
+theme_type_variation = &"SecondaryButton"
+text = "메인 메뉴"
