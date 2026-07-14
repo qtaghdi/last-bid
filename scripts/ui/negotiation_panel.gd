@@ -1,6 +1,8 @@
 class_name NegotiationPanel
 extends PanelContainer
 
+const CHARACTER_ASSET_RESOLVER: GDScript = preload("res://scripts/ui/character_asset_resolver.gd")
+
 signal accept_requested
 signal reject_requested
 signal counter_requested(amount: int)
@@ -16,6 +18,7 @@ signal counter_requested(amount: int)
 @onready var accept_button: Button = %AcceptButton
 @onready var reject_button: Button = %RejectButton
 @onready var counter_button: Button = %CounterButton
+@onready var portrait_texture: TextureRect = %PortraitTexture
 @onready var silhouette: SilhouettePortrait = %Silhouette
 
 var _displayed_text: String = ""
@@ -34,6 +37,7 @@ func _ready() -> void:
 	]
 	tell_label.tooltip_text = TooltipTerms.text("Tell")
 	promise_badge_label.tooltip_text = TooltipTerms.text("약속")
+	_set_issuer_portrait(null)
 
 func render(controller: GameFlowController) -> void:
 	var offer: NegotiationOffer = controller.current_negotiation_offer()
@@ -42,6 +46,7 @@ func render(controller: GameFlowController) -> void:
 	progress_label.text = "OFFER %d / %d" % [current, total] if total > 0 else "OFFER 0 / 0"
 	result_label.text = controller.negotiation.last_result_message if controller.negotiation != null else ""
 	if offer == null:
+		_set_issuer_portrait(null)
 		issuer_label.text = "협상 종료"
 		state_label.text = "처리된 제안 %d개" % total
 		tell_label.text = "경매를 시작할 수 있습니다."
@@ -55,7 +60,10 @@ func render(controller: GameFlowController) -> void:
 	var state: NpcRunState = controller.npc_run_state_for(offer.issuer_id)
 	issuer_label.text = issuer.display_name if issuer != null else String(offer.issuer_id)
 	if issuer != null:
+		_set_issuer_portrait(CHARACTER_ASSET_RESOLVER.load_portrait(issuer.character_id))
 		silhouette.set_tint(_issuer_color(issuer.character_id))
+	else:
+		_set_issuer_portrait(null)
 	state_label.text = "감정: %s    관계: %+d    평판: %+d" % [
 		NegotiationSystem.emotion_name(state.emotion) if state != null else "평온",
 		state.relationship_score if state != null else 0,
@@ -98,13 +106,18 @@ func _set_action_visibility(visible_value: bool) -> void:
 	reject_button.visible = visible_value
 	counter_button.visible = visible_value
 
+func _set_issuer_portrait(texture: Texture2D) -> void:
+	portrait_texture.texture = texture
+	portrait_texture.visible = texture != null
+	silhouette.visible = texture == null
+
 func _issuer_color(character_id: StringName) -> Color:
 	match character_id:
 		GameConstants.CHARACTER_MARA:
 			return UiPalette.MARA_ACCENT
-		GameConstants.CHARACTER_VOLT:
-			return UiPalette.VOLT_ACCENT
-		GameConstants.CHARACTER_SERA:
-			return UiPalette.SERA_ACCENT
+		GameConstants.CHARACTER_ROWAN:
+			return UiPalette.ROWAN_ACCENT
+		GameConstants.CHARACTER_SARAH:
+			return UiPalette.SARAH_ACCENT
 		_:
 			return UiPalette.GOLD_MUTED
