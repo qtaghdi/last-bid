@@ -1,0 +1,82 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/tutorial_overlay.gd" id="1"]
+
+[node name="TutorialOverlay" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="Anchor" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -472.0
+offset_top = -242.0
+offset_right = -24.0
+offset_bottom = -96.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="CoachMark" type="PanelContainer" parent="Anchor"]
+custom_minimum_size = Vector2(448, 146)
+layout_mode = 2
+mouse_filter = 0
+theme_type_variation = &"Modal"
+
+[node name="Column" type="VBoxContainer" parent="Anchor/CoachMark"]
+layout_mode = 2
+theme_override_constants/separation = 7
+
+[node name="EyebrowLabel" type="Label" parent="Anchor/CoachMark/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"EyebrowLabel"
+text = "FIRST RUN"
+
+[node name="TitleLabel" type="Label" parent="Anchor/CoachMark/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "단서로 추론하세요"
+
+[node name="BodyLabel" type="Label" parent="Anchor/CoachMark/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"MutedLabel"
+text = "카드의 정확한 효과는 아직 공개되지 않습니다."
+autowrap_mode = 2
+
+[node name="Actions" type="HBoxContainer" parent="Anchor/CoachMark/Column"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DisableButton" type="Button" parent="Anchor/CoachMark/Column/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SecondaryButton"
+text = "다시 보지 않기"
+
+[node name="SkipButton" type="Button" parent="Anchor/CoachMark/Column/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SecondaryButton"
+text = "건너뛰기"
+
+[node name="DismissButton" type="Button" parent="Anchor/CoachMark/Column/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(94, 36)
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "확인"
