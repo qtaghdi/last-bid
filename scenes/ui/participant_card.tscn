@@ -4,28 +4,31 @@
 [ext_resource type="Script" path="res://scripts/ui/silhouette_portrait.gd" id="2"]
 
 [node name="ParticipantCard" type="PanelContainer"]
-custom_minimum_size = Vector2(0, 88)
+custom_minimum_size = Vector2(0, 98)
 theme_type_variation = &"CharacterPanel"
 script = ExtResource("1")
 
 [node name="Column" type="VBoxContainer" parent="."]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 4
 
 [node name="Summary" type="HBoxContainer" parent="Column"]
 layout_mode = 2
-theme_override_constants/separation = 9
+theme_override_constants/separation = 8
 
 [node name="PortraitSlot" type="PanelContainer" parent="Column/Summary"]
-custom_minimum_size = Vector2(54, 66)
+unique_name_in_owner = true
+custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
-theme_type_variation = &"StatusBadge"
+clip_contents = true
+theme_type_variation = &"PortraitFrame"
 
 [node name="PortraitTexture" type="TextureRect" parent="Column/Summary/PortraitSlot"]
 unique_name_in_owner = true
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
+mouse_filter = 2
 
 [node name="Silhouette" type="Control" parent="Column/Summary/PortraitSlot"]
 unique_name_in_owner = true
@@ -40,6 +43,7 @@ theme_override_constants/separation = 2
 
 [node name="NameRow" type="HBoxContainer" parent="Column/Summary/Stats"]
 layout_mode = 2
+theme_override_constants/separation = 4
 
 [node name="NameLabel" type="Label" parent="Column/Summary/Stats/NameRow"]
 unique_name_in_owner = true
@@ -49,12 +53,16 @@ theme_override_font_sizes/font_size = 17
 text = "참가자"
 text_overrun_behavior = 3
 
-[node name="StatusLabel" type="Label" parent="Column/Summary/Stats/NameRow"]
+[node name="VitalBadge" type="PanelContainer" parent="Column/Summary/Stats/NameRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"GoldLabel"
+theme_type_variation = &"VitalBadge"
+
+[node name="VitalLabel" type="Label" parent="Column/Summary/Stats/NameRow/VitalBadge"]
+unique_name_in_owner = true
+layout_mode = 2
 theme_override_font_sizes/font_size = 12
-text = "생존"
+text = "정상"
 
 [node name="HpRow" type="HBoxContainer" parent="Column/Summary/Stats"]
 layout_mode = 2
@@ -62,7 +70,7 @@ theme_override_constants/separation = 6
 
 [node name="HpBar" type="ProgressBar" parent="Column/Summary/Stats/HpRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(82, 9)
+custom_minimum_size = Vector2(56, 9)
 layout_mode = 2
 size_flags_horizontal = 3
 max_value = 3.0
@@ -76,27 +84,77 @@ theme_type_variation = &"MutedLabel"
 theme_override_font_sizes/font_size = 12
 text = "HP 3/3"
 
-[node name="ResourceRow" type="HBoxContainer" parent="Column/Summary/Stats"]
-layout_mode = 2
-
-[node name="GoldLabel" type="Label" parent="Column/Summary/Stats/ResourceRow"]
+[node name="ActionBadgeRow" type="HFlowContainer" parent="Column/Summary/Stats"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"BrightGoldLabel"
-text = "800 G"
+theme_override_constants/h_separation = 3
+theme_override_constants/v_separation = 2
 
-[node name="EmotionLabel" type="Label" parent="Column/Summary/Stats/ResourceRow"]
+[node name="TurnBadge" type="PanelContainer" parent="Column/Summary/Stats/ActionBadgeRow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"ActionBadge"
+
+[node name="Label" type="Label" parent="Column/Summary/Stats/ActionBadgeRow/TurnBadge"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "▶ 차례"
+
+[node name="HighestBadge" type="PanelContainer" parent="Column/Summary/Stats/ActionBadgeRow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"ActionBadge"
+
+[node name="Label" type="Label" parent="Column/Summary/Stats/ActionBadgeRow/HighestBadge"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "◆ 최고"
+
+[node name="PassedBadge" type="PanelContainer" parent="Column/Summary/Stats/ActionBadgeRow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"ActionBadge"
+
+[node name="Label" type="Label" parent="Column/Summary/Stats/ActionBadgeRow/PassedBadge"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "× 패스"
+
+[node name="NegotiatingBadge" type="PanelContainer" parent="Column/Summary/Stats/ActionBadgeRow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"ActionBadge"
+
+[node name="Label" type="Label" parent="Column/Summary/Stats/ActionBadgeRow/NegotiatingBadge"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "◇ 협상"
+
+[node name="ObservationLabel" type="Label" parent="Column/Summary/Stats"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
 theme_override_font_sizes/font_size = 12
-text = "평온"
+text = "감정 · 평온 · Tell · 알 수 없음"
+text_overrun_behavior = 3
+
+[node name="ResourceLabel" type="Label" parent="Column/Summary/Stats"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GoldLabel"
+theme_override_font_sizes/font_size = 12
+text = "◇ 골드 비공개 · 보유 카드 비공개"
+text_overrun_behavior = 3
 
 [node name="DetailsButton" type="Button" parent="Column/Summary"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(30, 30)
+custom_minimum_size = Vector2(28, 28)
 layout_mode = 2
+size_flags_vertical = 0
 theme_type_variation = &"IconButton"
 text = "+"
 

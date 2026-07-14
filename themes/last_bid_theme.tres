@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=24 format=3]
+[gd_resource type="Theme" load_steps=30 format=3]
 
 [sub_resource type="StyleBoxFlat" id="PanelBase"]
 bg_color = Color(0.114, 0.102, 0.09, 0.97)
@@ -119,6 +119,98 @@ content_margin_left = 9.0
 content_margin_top = 3.0
 content_margin_right = 9.0
 content_margin_bottom = 3.0
+
+[sub_resource type="StyleBoxFlat" id="PortraitFrame"]
+bg_color = Color(0.075, 0.063, 0.052, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.61, 0.466, 0.257, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="VitalBadge"]
+bg_color = Color(0.114, 0.102, 0.09, 0.94)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.373, 0.541, 0.408, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+content_margin_left = 5.0
+content_margin_top = 1.0
+content_margin_right = 5.0
+content_margin_bottom = 1.0
+
+[sub_resource type="StyleBoxFlat" id="ActionBadge"]
+bg_color = Color(0.153, 0.133, 0.114, 0.94)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.56, 0.455, 0.286, 0.95)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+content_margin_left = 5.0
+content_margin_top = 1.0
+content_margin_right = 5.0
+content_margin_bottom = 1.0
+
+[sub_resource type="StyleBoxFlat" id="HudPhaseBadge"]
+bg_color = Color(0.12, 0.102, 0.083, 0.98)
+border_width_left = 3
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.82, 0.655, 0.369, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+content_margin_left = 10.0
+content_margin_top = 3.0
+content_margin_right = 10.0
+content_margin_bottom = 3.0
+
+[sub_resource type="StyleBoxFlat" id="HudStatPanel"]
+bg_color = Color(0.106, 0.094, 0.082, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.38, 0.337, 0.282, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+content_margin_left = 8.0
+content_margin_top = 3.0
+content_margin_right = 8.0
+content_margin_bottom = 3.0
+
+[sub_resource type="StyleBoxFlat" id="HudSecondaryPanel"]
+bg_color = Color(0.09, 0.078, 0.067, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.32, 0.286, 0.247, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+content_margin_left = 8.0
+content_margin_top = 2.0
+content_margin_right = 8.0
+content_margin_bottom = 2.0
 
 [sub_resource type="StyleBoxFlat" id="ButtonPrimary"]
 bg_color = Color(0.55, 0.402, 0.196, 1)
@@ -328,6 +420,18 @@ Toast/base_type = &"PanelContainer"
 Toast/styles/panel = SubResource("ToastPanel")
 StatusBadge/base_type = &"PanelContainer"
 StatusBadge/styles/panel = SubResource("BadgePanel")
+PortraitFrame/base_type = &"PanelContainer"
+PortraitFrame/styles/panel = SubResource("PortraitFrame")
+VitalBadge/base_type = &"PanelContainer"
+VitalBadge/styles/panel = SubResource("VitalBadge")
+ActionBadge/base_type = &"PanelContainer"
+ActionBadge/styles/panel = SubResource("ActionBadge")
+HudPhaseBadge/base_type = &"PanelContainer"
+HudPhaseBadge/styles/panel = SubResource("HudPhaseBadge")
+HudStatPanel/base_type = &"PanelContainer"
+HudStatPanel/styles/panel = SubResource("HudStatPanel")
+HudSecondaryPanel/base_type = &"PanelContainer"
+HudSecondaryPanel/styles/panel = SubResource("HudSecondaryPanel")
 Button/colors/font_color = Color(0.91, 0.872, 0.81, 1)
 Button/colors/font_hover_color = Color(1, 0.938, 0.78, 1)
 Button/colors/font_pressed_color = Color(0.98, 0.9, 0.72, 1)

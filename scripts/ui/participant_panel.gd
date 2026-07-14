@@ -2,6 +2,7 @@ class_name ParticipantPanel
 extends PanelContainer
 
 const PARTICIPANT_CARD_SCENE: PackedScene = preload("res://scenes/ui/participant_card.tscn")
+const CHARACTER_ASSET_RESOLVER: GDScript = preload("res://scripts/ui/character_asset_resolver.gd")
 
 @onready var list: VBoxContainer = %ParticipantList
 
@@ -15,6 +16,7 @@ func render(controller: GameFlowController, debug_mode: bool) -> void:
 		var card: ParticipantCard = _cards[actor.actor_id] as ParticipantCard
 		var current_turn: bool = controller.current_turn_actor_id() == actor.actor_id
 		card.render(actor, controller, debug_mode, current_turn)
+		card.set_portrait(CHARACTER_ASSET_RESOLVER.load_portrait(actor.character_id))
 		combined.append(card.displayed_text())
 	_combined_text = "\n".join(combined)
 

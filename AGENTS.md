@@ -35,7 +35,7 @@ Current playable baseline:
 - `PRE_INFO → NEGOTIATION → AUCTION → POST_AUCTION → JUDGMENT → ROUND_END`
 - Hidden card identity, per-actor `KnowledgeState`, two information tokens, investigation
 - Six prototype cards with immediate, delayed, ownership-aware, and judgment effects
-- Mara, Sera, and Volt with distinct goals, emotions, tells, dialogue, and emergency abilities
+- Mara, Rowan, and Sarah with distinct goals, emotions, tells, dialogue, and emergency abilities
 - Three seals, deterministic accidents, open/keep/sell/burn actions, inventory limits
 - Six promise types, fulfillment and violation, relationship, reputation, memory, and betrayal
 - Separate deterministic gameplay, negotiation, dialogue, and promise RNG streams

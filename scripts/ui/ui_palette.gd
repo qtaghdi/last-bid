@@ -13,11 +13,12 @@ const IVORY_PRIMARY: Color = Color("e8dfcf")
 const TEXT_SECONDARY: Color = Color("a79e90")
 const DANGER_PRIMARY: Color = Color("a64c43")
 const SUCCESS_PRIMARY: Color = Color("5f8a68")
+const INFORMATION_PRIMARY: Color = Color("66888a")
 const DISABLED_PRIMARY: Color = Color("57524c")
 const OVERLAY: Color = Color("050404d9")
 const MARA_ACCENT: Color = Color("9f8060")
-const VOLT_ACCENT: Color = Color("a94e42")
-const SERA_ACCENT: Color = Color("7d8d78")
+const ROWAN_ACCENT: Color = Color("a94e42")
+const SARAH_ACCENT: Color = Color("7d8d78")
 
 # Backward-compatible aliases keep gameplay presentation code centralized while
 # the visual prototype migrates to the named design tokens above.
@@ -100,4 +101,22 @@ static func panel_style(border_color: Color = GOLD, background: Color = PANEL) -
 	style.content_margin_top = 10.0
 	style.content_margin_right = 12.0
 	style.content_margin_bottom = 10.0
+	return style
+
+static func badge_style(border_color: Color, background: Color = PANEL) -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = with_alpha(background, 0.94)
+	style.border_width_left = BORDER_THIN
+	style.border_width_top = BORDER_THIN
+	style.border_width_right = BORDER_THIN
+	style.border_width_bottom = BORDER_THIN
+	style.border_color = border_color
+	style.corner_radius_top_left = CORNER_SMALL
+	style.corner_radius_top_right = CORNER_SMALL
+	style.corner_radius_bottom_left = CORNER_SMALL
+	style.corner_radius_bottom_right = CORNER_SMALL
+	style.content_margin_left = 5.0
+	style.content_margin_top = 1.0
+	style.content_margin_right = 5.0
+	style.content_margin_bottom = 1.0
 	return style

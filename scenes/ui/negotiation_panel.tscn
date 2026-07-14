@@ -38,7 +38,15 @@ theme_override_constants/separation = 12
 [node name="PortraitSlot" type="PanelContainer" parent="Column/OpponentRow"]
 custom_minimum_size = Vector2(72, 76)
 layout_mode = 2
+clip_contents = true
 theme_type_variation = &"StatusBadge"
+
+[node name="PortraitTexture" type="TextureRect" parent="Column/OpponentRow/PortraitSlot"]
+unique_name_in_owner = true
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 6
+mouse_filter = 2
 
 [node name="Silhouette" type="Control" parent="Column/OpponentRow/PortraitSlot"]
 unique_name_in_owner = true
