@@ -1,5 +1,7 @@
 extends SceneTree
 
+const CHARACTER_ASSET_RESOLVER: GDScript = preload("res://scripts/ui/character_asset_resolver.gd")
+
 var _failures: int = 0
 var _assertions: int = 0
 
@@ -44,6 +46,9 @@ func _run_all() -> void:
 	_test_promise_rewards_reputation_and_memory()
 	_test_npc_betrayal_determinism_and_personality()
 	_test_promise_death_cancellation_and_ui()
+	_test_character_portrait_resolution_and_fallback()
+	_test_participant_card_public_information_and_states()
+	_test_top_hud_public_state_and_responsiveness()
 	_test_visual_design_system_and_components()
 	_test_main_menu_settings_and_onboarding()
 	_test_violation_warning_and_visual_feedback()
@@ -111,6 +116,14 @@ func _test_card_information_visibility() -> void:
 	_assert_equal(top_hud.displayed_phase(), "사전 정보", "상단 HUD가 사용자용 단계명을 표시")
 	_assert_true(not top_hud.displayed_phase().contains("PRE_INFO"), "상단 HUD에서 내부 enum 이름 숨김")
 	_assert_true(top_hud.displayed_info().contains("2"), "PRE_INFO 정보 토큰 표시")
+	_assert_equal(top_hud.displayed_hp(), "HP 3 / 3", "main_ui가 플레이어 HP를 HUD에 전달")
+	_assert_equal(top_hud.displayed_gold(), str(player.gold), "main_ui가 플레이어 골드를 HUD에 전달")
+	_assert_true(top_hud.displayed_survivors().contains("생존 4"), "main_ui가 공개 생존 인원을 HUD에 전달")
+	controller.run_state.current_min_increment = GameConstants.PRICE_SURGE_INCREMENT
+	ui.refresh_ui()
+	_assert_equal(top_hud.displayed_rule(), "규칙 · 최소 인상 150 G", "main_ui가 적용 중인 공개 전역 규칙을 HUD에 전달")
+	controller.run_state.current_min_increment = GameConstants.DEFAULT_MIN_INCREMENT
+	ui.refresh_ui()
 	_assert_equal(card_panel.displayed_name(), card.public_name, "PRE_INFO에서 공개 출품명만 표시")
 	_assert_true(card_panel.displayed_name() != card.actual_name, "PRE_INFO에서 정확한 이름 숨김")
 	_assert_true(not card_panel.displayed_name().contains(String(card.id)), "PRE_INFO에서 내부 ID 숨김")
@@ -959,10 +972,10 @@ func _test_negotiation_determinism_and_rng_isolation() -> void:
 		var state: NpcRunState = goal_controller.npc_run_state_for(actor.actor_id)
 		_assert_true(profile != null, "%s 프로필 데이터 로드" % actor.display_name)
 		_assert_true(profile.secret_goal_pool.has(String(state.secret_goal_id)), "%s 목표가 캐릭터별 풀에서 선택" % actor.display_name)
-	_assert_equal(profile_count, 3, "마라·볼트·세라 프로필 3개")
-	goal_controller.npc_run_state_for(&"npc_3").secret_goal_id = &"volt_bid_total"
+	_assert_equal(profile_count, 3, "마라·로완·사라 프로필 3개")
+	goal_controller.npc_run_state_for(&"npc_3").secret_goal_id = &"rowan_bid_total"
 	var goal_offer: NegotiationOffer = goal_controller.negotiation.build_offer(&"npc_3")
-	_assert_equal(goal_offer.offer_type, GameConstants.OfferType.SKIP_AUCTION, "볼트의 누적 입찰 목표가 경쟁 제거 제안에 반영")
+	_assert_equal(goal_offer.offer_type, GameConstants.OfferType.SKIP_AUCTION, "로완의 누적 입찰 목표가 경쟁 제거 제안에 반영")
 	goal_controller.free()
 
 func _test_offer_responses_and_relationships() -> void:
@@ -1084,13 +1097,13 @@ func _test_character_emotion_tells_and_visibility() -> void:
 	_assert_equal(emotional.npc_run_state_for(&"npc_1").emotion, GameConstants.Emotion.AFRAID, "HP 1 마라는 AFRAID")
 	_assert_true(
 		emotional.npc_run_state_for(&"npc_3").emotion in [GameConstants.Emotion.INTERESTED, GameConstants.Emotion.SMUG, GameConstants.Emotion.NERVOUS],
-		"볼트 감정이 평가 상태에 따라 갱신"
+		"로완 감정이 평가 상태에 따라 갱신"
 	)
 	emotional.free()
 
 	var catalog: NpcContentCatalog = NpcContentCatalog.new()
 	var tell_ids: Dictionary = {}
-	for character_id: StringName in [GameConstants.CHARACTER_MARA, GameConstants.CHARACTER_VOLT, GameConstants.CHARACTER_SERA]:
+	for character_id: StringName in [GameConstants.CHARACTER_MARA, GameConstants.CHARACTER_ROWAN, GameConstants.CHARACTER_SARAH]:
 		var profile: NpcCharacterProfile = catalog.profile(character_id)
 		var tells: Array[Dictionary] = catalog.tells_for(profile, &"")
 		_assert_true(not tells.is_empty(), "%s 행동 신호 풀 존재" % character_id)
@@ -1104,17 +1117,32 @@ func _test_character_emotion_tells_and_visibility() -> void:
 	root.add_child(ui)
 	var ui_controller: GameFlowController = ui.get_node("GameFlowController") as GameFlowController
 	var participants: ParticipantPanel = ui.get_node("%ParticipantPanel") as ParticipantPanel
+	var participant_list: VBoxContainer = participants.get_node("%ParticipantList") as VBoxContainer
 	var negotiation_panel: NegotiationPanel = ui.get_node("%NegotiationPanel") as NegotiationPanel
 	var normal_text: String = participants.combined_text()
-	_assert_true(normal_text.contains("마라") and normal_text.contains("볼트") and normal_text.contains("세라"), "일반 UI에 캐릭터 이름 표시")
-	_assert_true(normal_text.contains("감정") and normal_text.contains("관계") and normal_text.contains("비장"), "참가자 패널에 감정·관계·비장의 수단 표시")
+	_assert_true(normal_text.contains("마라") and normal_text.contains("로완") and normal_text.contains("사라"), "일반 UI에 캐릭터 이름 표시")
+	_assert_true(normal_text.contains("감정") and normal_text.contains("관계"), "참가자 패널에 공개 감정과 관계 표시")
+	_assert_true(not normal_text.contains("비장의 수단") and not normal_text.contains("기억 ·"), "일반 참가자 카드에서 내부 능력과 기억 숨김")
 	for actor: ActorState in ui_controller.actors:
 		if actor.actor_type == GameConstants.ActorType.NPC:
+			var participant_card: ParticipantCard = participant_list.get_node("Actor_%s" % actor.actor_id) as ParticipantCard
+			_assert_true(
+				(participant_card.get_node("%PortraitTexture") as TextureRect).texture != null
+				and (participant_card.get_node("%PortraitTexture") as TextureRect).visible
+				and not (participant_card.get_node("%Silhouette") as SilhouettePortrait).visible,
+				"%s ParticipantCard에 실제 페이지 아이콘 초상화 표시" % actor.display_name
+			)
 			var goal: Dictionary = ui_controller.negotiation.goal_for(actor.actor_id)
 			_assert_true(not normal_text.contains(str(goal.get("description", ""))), "일반 UI에서 숨겨진 목표 비공개")
 	ui_controller.request_advance()
 	ui.refresh_ui()
 	_assert_true(negotiation_panel.visible, "NEGOTIATION UI 표시")
+	_assert_true(
+		(negotiation_panel.get_node("%PortraitTexture") as TextureRect).texture != null
+		and (negotiation_panel.get_node("%PortraitTexture") as TextureRect).visible
+		and not (negotiation_panel.get_node("%Silhouette") as SilhouettePortrait).visible,
+		"NegotiationPanel에 현재 상대 페이지 아이콘 초상화 표시"
+	)
 	_assert_true(not negotiation_panel.displayed_text().contains(ui_controller.run_state.current_card.description), "협상 UI에서 실제 효과 설명 숨김")
 	_assert_true(ui_controller.debug_information_report().contains("goal="), "DEBUG에서 숨겨진 목표 표시")
 	_assert_true(ui_controller.debug_information_report().contains("NEGOTIATION RNG SEED"), "DEBUG에서 협상 RNG 표시")
@@ -1131,33 +1159,33 @@ func _test_emergency_abilities() -> void:
 	_assert_true(not mara_controller.negotiation.try_use_emergency(mara.actor_id, true), "마라 비장의 수단 재사용 불가")
 	mara_controller.free()
 
-	var volt_controller: GameFlowController = _new_controller(12051)
-	var volt: ActorState = volt_controller.actor_by_id(&"npc_3")
-	volt.hp = 2
-	volt.gold = 100
-	_assert_true(volt_controller.negotiation.try_use_emergency(volt.actor_id, true), "볼트 생명 담보 사용")
-	_assert_equal(volt.hp, 1, "생명 담보 체력 1 지불")
-	_assert_equal(volt.gold, 500, "생명 담보 400 G 획득")
-	_assert_true(not volt_controller.negotiation.try_use_emergency(volt.actor_id, true), "볼트 비장의 수단 재사용 불가")
-	volt_controller.free()
+	var rowan_controller: GameFlowController = _new_controller(12051)
+	var rowan: ActorState = rowan_controller.actor_by_id(&"npc_3")
+	rowan.hp = 2
+	rowan.gold = 100
+	_assert_true(rowan_controller.negotiation.try_use_emergency(rowan.actor_id, true), "로완 생명 담보 사용")
+	_assert_equal(rowan.hp, 1, "생명 담보 체력 1 지불")
+	_assert_equal(rowan.gold, 500, "생명 담보 400 G 획득")
+	_assert_true(not rowan_controller.negotiation.try_use_emergency(rowan.actor_id, true), "로완 비장의 수단 재사용 불가")
+	rowan_controller.free()
 
-	var sera_controller: GameFlowController = _new_controller(12052)
+	var sarah_controller: GameFlowController = _new_controller(12052)
 	var player_knowledge: KnowledgeState = _knowledge_with_clue(PackedStringArray(["information"]), 300, 100)
 	player_knowledge.actor_id = GameConstants.PLAYER_ID
-	player_knowledge.card_instance_id = sera_controller.run_state.current_lot_id
-	var sera_knowledge: KnowledgeState = KnowledgeState.create(&"npc_2", sera_controller.run_state.current_lot_id)
-	sera_controller.knowledge_states[GameConstants.PLAYER_ID] = player_knowledge
-	sera_controller.knowledge_states[&"npc_2"] = sera_knowledge
-	sera_controller.negotiation.begin_round(sera_controller.actors, sera_controller.knowledge_states)
-	_assert_true(sera_controller.negotiation.try_use_emergency(&"npc_2", true), "세라 정보 절취 사용")
-	_assert_true(sera_knowledge.knows(&"test_clue"), "정보 절취로 플레이어 단서 획득")
-	_assert_true(not sera_controller.negotiation.try_use_emergency(&"npc_2", true), "세라 비장의 수단 재사용 불가")
-	sera_controller.free()
+	player_knowledge.card_instance_id = sarah_controller.run_state.current_lot_id
+	var sarah_knowledge: KnowledgeState = KnowledgeState.create(&"npc_2", sarah_controller.run_state.current_lot_id)
+	sarah_controller.knowledge_states[GameConstants.PLAYER_ID] = player_knowledge
+	sarah_controller.knowledge_states[&"npc_2"] = sarah_knowledge
+	sarah_controller.negotiation.begin_round(sarah_controller.actors, sarah_controller.knowledge_states)
+	_assert_true(sarah_controller.negotiation.try_use_emergency(&"npc_2", true), "사라 정보 절취 사용")
+	_assert_true(sarah_knowledge.knows(&"test_clue"), "정보 절취로 플레이어 단서 획득")
+	_assert_true(not sarah_controller.negotiation.try_use_emergency(&"npc_2", true), "사라 비장의 수단 재사용 불가")
+	sarah_controller.free()
 
 func _test_dialogue_data_and_rng_isolation() -> void:
 	var first: NpcDialogueService = NpcDialogueService.new(12060)
 	var second: NpcDialogueService = NpcDialogueService.new(12060)
-	for character_id: StringName in [GameConstants.CHARACTER_MARA, GameConstants.CHARACTER_VOLT, GameConstants.CHARACTER_SERA]:
+	for character_id: StringName in [GameConstants.CHARACTER_MARA, GameConstants.CHARACTER_ROWAN, GameConstants.CHARACTER_SARAH]:
 		_assert_true(first.line_count(character_id) >= 20, "%s 대사 데이터 20줄 이상" % character_id)
 		_assert_true(first.categories(character_id).has("negotiation_start"), "%s 협상 대사 카테고리 분리" % character_id)
 		for category: String in [
@@ -1177,12 +1205,12 @@ func _test_dialogue_data_and_rng_isolation() -> void:
 	var first_lines: PackedStringArray = []
 	var second_lines: PackedStringArray = []
 	for _index: int in range(6):
-		first_lines.append(first.select_line(GameConstants.CHARACTER_SERA, &"negotiation_start"))
-		second_lines.append(second.select_line(GameConstants.CHARACTER_SERA, &"negotiation_start"))
+		first_lines.append(first.select_line(GameConstants.CHARACTER_SARAH, &"negotiation_start"))
+		second_lines.append(second.select_line(GameConstants.CHARACTER_SARAH, &"negotiation_start"))
 	_assert_equal(first_lines, second_lines, "같은 Seed에서 협상 대사 재현")
 	_assert_true(
 		first.select_line(GameConstants.CHARACTER_MARA, &"greeting")
-		!= first.select_line(GameConstants.CHARACTER_VOLT, &"greeting"),
+		!= first.select_line(GameConstants.CHARACTER_ROWAN, &"greeting"),
 		"캐릭터별 대사 풀 구분"
 	)
 	var dialogue_source: String = FileAccess.get_file_as_string("res://scripts/ai/npc_dialogue_service.gd")
@@ -1192,7 +1220,7 @@ func _test_dialogue_data_and_rng_isolation() -> void:
 	var gameplay_second: CentralRng = CentralRng.new(12061)
 	var dialogue: NpcDialogueService = NpcDialogueService.new(12061)
 	for _index: int in range(10):
-		dialogue.select_line(GameConstants.CHARACTER_VOLT, &"interest")
+		dialogue.select_line(GameConstants.CHARACTER_ROWAN, &"interest")
 	_assert_equal(gameplay_first.randi_range(1, 100000), gameplay_second.randi_range(1, 100000), "dialogue RNG가 gameplay RNG에 영향 없음")
 
 func _test_promise_creation_and_six_types() -> void:
@@ -1476,26 +1504,26 @@ func _test_npc_betrayal_determinism_and_personality() -> void:
 	_assert_true(pressured_offer.creates_promise, "생존 압박 약속도 정상 생성")
 	mara_controller.free()
 
-	var volt_controller: GameFlowController = _new_controller(13302)
-	volt_controller.npc_run_state_for(&"npc_3").secret_goal_id = &"volt_win_auctions"
-	_install_offer(volt_controller, &"npc_3", GameConstants.OfferType.MUTUAL_PASS)
-	volt_controller.request_accept_offer()
-	var volt_promise: PromiseState = volt_controller.run_state.active_promises[0]
-	_assert_true(volt_controller.promise_manager.decide_npc_betrayal(volt_promise, &"npc_3", 80), "볼트는 즉시 이익과 목표가 크면 배신 가능")
-	volt_controller.events.bid_placed.emit(&"npc_3", 200)
-	_assert_equal(volt_promise.status, GameConstants.PROMISE_BROKEN, "NPC 입찰로 약속 위반 판정")
-	_assert_equal(volt_controller.run_state.betrayal_history.size(), 1, "NPC 배신 이력 기록")
-	_assert_equal(volt_controller.npc_run_state_for(&"npc_3").emotion, GameConstants.Emotion.SMUG, "볼트 배신 후 SMUG 감정")
-	volt_controller.free()
+	var rowan_controller: GameFlowController = _new_controller(13302)
+	rowan_controller.npc_run_state_for(&"npc_3").secret_goal_id = &"rowan_win_auctions"
+	_install_offer(rowan_controller, &"npc_3", GameConstants.OfferType.MUTUAL_PASS)
+	rowan_controller.request_accept_offer()
+	var rowan_promise: PromiseState = rowan_controller.run_state.active_promises[0]
+	_assert_true(rowan_controller.promise_manager.decide_npc_betrayal(rowan_promise, &"npc_3", 80), "로완은 즉시 이익과 목표가 크면 배신 가능")
+	rowan_controller.events.bid_placed.emit(&"npc_3", 200)
+	_assert_equal(rowan_promise.status, GameConstants.PROMISE_BROKEN, "NPC 입찰로 약속 위반 판정")
+	_assert_equal(rowan_controller.run_state.betrayal_history.size(), 1, "NPC 배신 이력 기록")
+	_assert_equal(rowan_controller.npc_run_state_for(&"npc_3").emotion, GameConstants.Emotion.SMUG, "로완 배신 후 SMUG 감정")
+	rowan_controller.free()
 
-	var sera_controller: GameFlowController = _new_controller(13303)
-	_prepare_share_knowledge(sera_controller, &"npc_2", GameConstants.PLAYER_ID)
-	sera_controller.npc_run_state_for(&"npc_2").secret_goal_id = &"sera_gain_clues"
-	_install_offer(sera_controller, &"npc_2", GameConstants.OfferType.SHARE_INFORMATION)
-	sera_controller.request_accept_offer()
-	var sera_promise: PromiseState = sera_controller.run_state.active_promises[0]
-	_assert_true(sera_controller.promise_manager.decide_npc_betrayal(sera_promise, &"npc_2", 120), "세라는 정보 우위 이익이 크면 배신 가능")
-	sera_controller.free()
+	var sarah_controller: GameFlowController = _new_controller(13303)
+	_prepare_share_knowledge(sarah_controller, &"npc_2", GameConstants.PLAYER_ID)
+	sarah_controller.npc_run_state_for(&"npc_2").secret_goal_id = &"sarah_gain_clues"
+	_install_offer(sarah_controller, &"npc_2", GameConstants.OfferType.SHARE_INFORMATION)
+	sarah_controller.request_accept_offer()
+	var sarah_promise: PromiseState = sarah_controller.run_state.active_promises[0]
+	_assert_true(sarah_controller.promise_manager.decide_npc_betrayal(sarah_promise, &"npc_2", 120), "사라는 정보 우위 이익이 크면 배신 가능")
+	sarah_controller.free()
 
 	var high_rep: GameFlowController = _new_controller(13304)
 	var low_rep: GameFlowController = _new_controller(13304)
@@ -1504,7 +1532,7 @@ func _test_npc_betrayal_determinism_and_personality() -> void:
 		{"controller": low_rep, "reputation": -3},
 	]:
 		var candidate: GameFlowController = item["controller"] as GameFlowController
-		candidate.npc_run_state_for(&"npc_3").secret_goal_id = &"volt_bid_total"
+		candidate.npc_run_state_for(&"npc_3").secret_goal_id = &"rowan_bid_total"
 		candidate.promise_manager.change_reputation(&"npc_3", int(item["reputation"]))
 		_install_offer(candidate, &"npc_3", GameConstants.OfferType.MUTUAL_PASS)
 		candidate.request_accept_offer()
@@ -1556,7 +1584,8 @@ func _test_promise_death_cancellation_and_ui() -> void:
 	_assert_true(active_panel.displayed_text().contains("1라운드 남음"), "활성 약속 남은 기한 표시")
 	_assert_true(active_panel.displayed_text().contains("봉인을 열면 위반"), "활성 약속 위반 조건 표시")
 	_assert_true(not active_panel.displayed_text().contains(String(instance.instance_id)), "활성 약속 UI에서 내부 ID 숨김")
-	_assert_true(participants.combined_text().contains("평판") and participants.combined_text().contains("기억") and participants.combined_text().contains("활성 약속"), "참가자 패널에 평판·기억·활성 약속 수 표시")
+	_assert_true(participants.combined_text().contains("평판") and participants.combined_text().contains("활성 약속"), "참가자 패널에 공개 평판과 활성 약속 수 표시")
+	_assert_true(not participants.combined_text().contains("기억 ·"), "일반 참가자 카드에서 내부 기억 숨김")
 	_assert_true(not participants.combined_text().contains("severity"), "일반 UI에 memory severity 미노출")
 	_assert_true(controller.debug_information_report().contains(String(offer.promise_type)), "DEBUG에서 전체 PromiseState 타입 표시")
 	_assert_true(controller.debug_information_report().contains(String(controller.run_state.active_promises[0].promise_id)), "DEBUG에서 promise_id 표시")
@@ -1581,6 +1610,259 @@ func _test_promise_death_cancellation_and_ui() -> void:
 	_assert_equal(controller.run_state.active_promises.size(), 0, "UI 이행 후 활성 약속 제거")
 	ui.free()
 
+func _test_character_portrait_resolution_and_fallback() -> void:
+	_assert_equal(
+		CHARACTER_ASSET_RESOLVER.portrait_path(GameConstants.CHARACTER_MARA),
+		"res://assets/characters/mara/portrait.png",
+		"Mara 공식 초상화 경로 결정"
+	)
+	_assert_equal(
+		CHARACTER_ASSET_RESOLVER.portrait_path(GameConstants.CHARACTER_ROWAN),
+		"res://assets/characters/rowan/portrait.png",
+		"Rowan 공식 초상화 경로 결정"
+	)
+	_assert_equal(
+		CHARACTER_ASSET_RESOLVER.portrait_path(GameConstants.CHARACTER_SARAH),
+		"res://assets/characters/sarah/portrait.png",
+		"Sarah 공식 초상화 경로 결정"
+	)
+	_assert_equal(CHARACTER_ASSET_RESOLVER.portrait_path(&"../invalid"), "", "잘못된 캐릭터 경로 차단")
+	_assert_true(CHARACTER_ASSET_RESOLVER.load_portrait(&"missing_character") == null, "누락 초상화는 오류 없이 null 반환")
+	for character_id: StringName in [
+		GameConstants.CHARACTER_MARA,
+		GameConstants.CHARACTER_ROWAN,
+		GameConstants.CHARACTER_SARAH,
+	]:
+		var portrait_path: String = CHARACTER_ASSET_RESOLVER.portrait_path(character_id)
+		_assert_true(
+			ResourceLoader.exists(portrait_path, "Texture2D")
+			and CHARACTER_ASSET_RESOLVER.load_portrait(character_id) != null,
+			"%s 페이지 아이콘 초상화가 Texture2D로 로드" % character_id
+		)
+
+	var participant_scene: PackedScene = load("res://scenes/ui/participant_card.tscn") as PackedScene
+	var participant_card: ParticipantCard = participant_scene.instantiate() as ParticipantCard
+	root.add_child(participant_card)
+	participant_card.set_portrait(CHARACTER_ASSET_RESOLVER.load_portrait(GameConstants.CHARACTER_MARA))
+	_assert_true(
+		(participant_card.get_node("%PortraitTexture") as TextureRect).visible
+		and not (participant_card.get_node("%Silhouette") as SilhouettePortrait).visible,
+		"ParticipantCard는 Texture2D가 있으면 공식 초상화 슬롯 표시"
+	)
+	participant_card.set_portrait(null)
+	_assert_true(
+		not (participant_card.get_node("%PortraitTexture") as TextureRect).visible
+		and (participant_card.get_node("%Silhouette") as SilhouettePortrait).visible,
+		"ParticipantCard는 초상화가 없으면 실루엣 fallback 표시"
+	)
+	participant_card.free()
+
+	var negotiation_scene: PackedScene = load("res://scenes/ui/negotiation_panel.tscn") as PackedScene
+	var negotiation_panel: NegotiationPanel = negotiation_scene.instantiate() as NegotiationPanel
+	root.add_child(negotiation_panel)
+	_assert_true(
+		not (negotiation_panel.get_node("%PortraitTexture") as TextureRect).visible
+		and (negotiation_panel.get_node("%Silhouette") as SilhouettePortrait).visible,
+		"NegotiationPanel은 초상화가 없으면 실루엣 fallback 표시"
+	)
+	negotiation_panel.free()
+
+func _test_participant_card_public_information_and_states() -> void:
+	var controller: GameFlowController = _new_controller(13550)
+	var player: ActorState = controller.actor_by_id(GameConstants.PLAYER_ID)
+	var npc: ActorState = controller.actor_by_id(&"npc_1")
+	var other_npc: ActorState = controller.actor_by_id(&"npc_2")
+	var definition: CardDefinition = CardCatalog.by_id(&"broken_chalice")
+	npc.gold = 713
+	npc.inventory.append(CardInstance.create(definition, npc.actor_id, 1, 81))
+	player.inventory.append(CardInstance.create(definition, player.actor_id, 1, 82))
+	var destroyed_player_card: CardInstance = CardInstance.create(definition, player.actor_id, 1, 83)
+	destroyed_player_card.destroyed = true
+	player.inventory.append(destroyed_player_card)
+	var participant_scene: PackedScene = load("res://scenes/ui/participant_card.tscn") as PackedScene
+	var card: ParticipantCard = participant_scene.instantiate() as ParticipantCard
+	root.add_child(card)
+
+	card.render(npc, controller, false, false)
+	_assert_equal((card.get_node("%VitalLabel") as Label).text, "정상", "NPC 카드 normal 생존 배지")
+	_assert_true(not (card.get_node("%ActionBadgeRow") as HFlowContainer).visible, "normal 상태는 행동 배지 없음")
+	_assert_true(card.displayed_text().contains("골드 비공개"), "NPC 정확한 골드는 비공개")
+	_assert_true(not card.displayed_text().contains("713"), "NPC 내부 골드 수치 미노출")
+	_assert_true(card.displayed_text().contains("보유 카드 · 비공개"), "공개 카드 수 모델이 없는 NPC 인벤토리 비공개")
+	_assert_true(not card.displayed_text().contains(definition.public_name), "NPC 보유 카드 종류 미노출")
+	_assert_true(card.displayed_text().contains("Tell · 알 수 없음"), "관찰 전 Tell은 알 수 없음")
+	_assert_true(not card.displayed_text().contains("비장의 수단") and not card.displayed_text().contains("기억 ·"), "일반 카드에서 DEBUG성 NPC 정보 미노출")
+
+	card.render(player, controller, false, false)
+	_assert_true(card.displayed_text().contains("%d G" % player.gold), "플레이어 정확한 골드 표시")
+	_assert_true(card.displayed_text().contains("보유 카드 1"), "소비·파괴 카드를 제외한 플레이어 보유 카드 수 표시")
+	_assert_true(card.displayed_text().contains(definition.public_name), "플레이어에게 허용된 보유 카드 상세 유지")
+
+	controller.run_state.current_phase = GameConstants.Phase.AUCTION
+	controller.run_state.highest_bidder_id = npc.actor_id
+	card.render(npc, controller, false, true)
+	_assert_true(
+		(card.get_node("%TurnBadge") as PanelContainer).visible
+		and (card.get_node("%HighestBadge") as PanelContainer).visible,
+		"active_turn과 highest_bidder 행동 배지 중첩"
+	)
+	npc.hp = 2
+	card.render(npc, controller, false, false)
+	_assert_true(
+		(card.get_node("%VitalLabel") as Label).text.contains("부상")
+		and (card.get_node("%HighestBadge") as PanelContainer).visible,
+		"damaged와 highest_bidder 상태 중첩"
+	)
+	npc.hp = 0
+	npc.alive = false
+	npc.has_passed = true
+	card.render(npc, controller, false, false)
+	_assert_true(
+		(card.get_node("%VitalLabel") as Label).text.contains("사망")
+		and (card.get_node("%PassedBadge") as PanelContainer).visible,
+		"dead와 passed 상태 중첩"
+	)
+	_assert_true(is_equal_approx(card.modulate.a, 1.0), "사망 상태에서도 카드 텍스트 불투명도 유지")
+
+	npc.hp = npc.max_hp
+	npc.alive = true
+	npc.has_passed = false
+	controller.run_state.current_phase = GameConstants.Phase.NEGOTIATION
+	controller.run_state.negotiation_complete = false
+	controller.run_state.current_offer_index = 0
+	var observed_tell: String = "손끝으로 황동 인장을 천천히 두 번 두드리며 상대의 반응을 살핍니다."
+	var current_offer: NegotiationOffer = NegotiationOffer.new()
+	current_offer.issuer_id = npc.actor_id
+	current_offer.tell_text = observed_tell
+	var future_offer: NegotiationOffer = NegotiationOffer.new()
+	future_offer.issuer_id = other_npc.actor_id
+	future_offer.tell_text = "아직 확인하지 않은 미래 Tell"
+	controller.run_state.negotiation_offers = [current_offer, future_offer]
+	card.render(npc, controller, false, false)
+	_assert_true((card.get_node("%NegotiatingBadge") as PanelContainer).visible, "현재 제안 NPC에 negotiating 배지 표시")
+	_assert_true(card.displayed_text().contains(observed_tell), "현재 제안에서 관찰한 최신 Tell 표시")
+	_assert_equal((card.get_node("%ObservationLabel") as Label).tooltip_text, (card.get_node("%ObservationLabel") as Label).text, "긴 Tell 전체 내용을 Tooltip으로 제공")
+	card.render(other_npc, controller, false, false)
+	_assert_true(not card.displayed_text().contains(future_offer.tell_text), "아직 제시되지 않은 Tell 미노출")
+
+	var long_name: String = "사라 알렉산드라 드 발몽 경매 기록 보관인"
+	npc.display_name = long_name
+	card.render(npc, controller, true, false)
+	_assert_equal((card.get_node("%NameLabel") as Label).tooltip_text, long_name, "긴 이름 전체 내용을 Tooltip으로 제공")
+	_assert_true((card.get_node("%NameLabel") as Label).text_overrun_behavior != TextServer.OVERRUN_NO_TRIMMING, "긴 이름 말줄임 설정")
+	_assert_true((card.get_node("%ObservationLabel") as Label).text_overrun_behavior != TextServer.OVERRUN_NO_TRIMMING, "긴 Tell 말줄임 설정")
+	_assert_true(card.displayed_text().contains("DEBUG · 비장의 수단") and card.displayed_text().contains("DEBUG · 기억"), "DEBUG 모드에서만 내부 진단 정보 표시")
+
+	var portrait_slot: PanelContainer = card.get_node("%PortraitSlot") as PanelContainer
+	var portrait_texture: TextureRect = card.get_node("%PortraitTexture") as TextureRect
+	_assert_true(
+		is_equal_approx(portrait_slot.custom_minimum_size.x, portrait_slot.custom_minimum_size.y),
+		"ParticipantCard 초상화 슬롯 정사각형"
+	)
+	_assert_equal(portrait_texture.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_CENTERED, "초상화 비율 유지·중앙 정렬·크롭 금지")
+	_assert_true(card.custom_minimum_size.y <= 104.0, "카드 4개 스크롤을 위한 접힌 카드 높이 제한")
+	card.free()
+	controller.free()
+
+func _test_top_hud_public_state_and_responsiveness() -> void:
+	var hud_scene: PackedScene = load("res://scenes/ui/top_hud.tscn") as PackedScene
+	var hud: TopHud = hud_scene.instantiate() as TopHud
+	hud.theme = load("res://themes/last_bid_theme.tres") as Theme
+	root.add_child(hud)
+	hud.size = Vector2(1244, 104)
+	var run_state: RunState = RunState.new()
+	run_state.reset(24680)
+	run_state.current_phase = GameConstants.Phase.PRE_INFO
+	run_state.current_round = 1
+	run_state.player_info_tokens = 2
+	hud.render(
+		run_state,
+		3,
+		3,
+		0,
+		true,
+		4,
+		4,
+		"기본 경매",
+		"공개된 전역 규칙 변경이 없습니다.",
+		false,
+		false,
+		"활성 약속 없음"
+	)
+	_assert_equal(hud.displayed_phase(), "사전 정보", "HUD 현재 phase 사용자용 이름 표시")
+	_assert_true(
+		(hud.get_node("%PhaseLabel") as Label).get_theme_font_size("font_size")
+		> (hud.get_node("%RoundLabel") as Label).get_theme_font_size("font_size"),
+		"phase 텍스트를 round보다 크게 표시"
+	)
+	_assert_true((hud.get_node("Column/PrimaryRow/PhaseBadge") as PanelContainer).get_theme_stylebox("panel") is StyleBoxFlat, "phase를 명확한 배지로 표시")
+	_assert_equal(hud.displayed_hp(), "HP 3 / 3", "normal HP 숫자 표시")
+	_assert_true(
+		is_equal_approx((hud.get_node("%HpBar") as ProgressBar).value, 3.0),
+		"normal HP 게이지 표시"
+	)
+	_assert_equal(hud.displayed_gold(), "0", "gold 0 정확히 표시")
+	_assert_equal(hud.displayed_info(), "◆ 정보 2", "사용 가능한 정보 토큰 기호·텍스트 표시")
+	_assert_equal(hud.displayed_rule(), "규칙 · 기본 경매", "기본 전역 규칙 축약 표시")
+	_assert_equal(hud.displayed_promise(), "약속 없음", "활성 약속 없음 표시")
+	_assert_equal(hud.displayed_survivors(), "생존 4 / 4", "공개 alive 상태 기반 생존 인원 표시")
+	_assert_true((hud.get_node("%SeedLabel") as Label).visible, "넓은 폭 일반 HUD에서 Seed 보조 표시")
+	_assert_true(not (hud.get_node("%DebugToggle") as CheckButton).button_pressed, "DEBUG off 상태 동기화")
+	_assert_true(hud.custom_minimum_size.y >= 96.0 and hud.custom_minimum_size.y <= 108.0, "넓은 HUD 목표 높이 96~108px 유지")
+
+	hud.render(run_state, 1, 3, 999999999, true, 3, 4, "최소 인상 150 G", "현재 최소 인상액은 150 G입니다.", true, false)
+	_assert_equal(hud.displayed_hp(), "! 위험 · HP 1 / 3", "HP 1 위험을 기호·텍스트·숫자로 표시")
+	_assert_true((hud.get_node("%HpLabel") as Label).tooltip_text.contains("HP 1 / 3"), "HP 위험 상태 Tooltip 제공")
+	_assert_equal(hud.displayed_gold(), "999999999", "매우 큰 골드 값 유지")
+	_assert_true((hud.get_node("%GoldValueLabel") as Label).tooltip_text.contains("999999999 G"), "큰 골드 전체 값 Tooltip 제공")
+	_assert_equal(hud.displayed_rule(), "규칙 · 최소 인상 150 G", "변경된 공개 최소 인상 규칙 강조")
+	_assert_true((hud.get_node("%RuleLabel") as Label).tooltip_text.contains("150 G"), "전역 규칙 전체 설명 Tooltip 제공")
+	_assert_equal(hud.displayed_survivors(), "생존 3 / 4", "생존 인원 감소 반영")
+
+	run_state.player_info_tokens = 0
+	hud.render(run_state, 0, 3, 10, false, 2, 4, "기본 경매", "기본 규칙", false, false)
+	_assert_equal(hud.displayed_hp(), "† 사망", "플레이어 사망 상태 명시")
+	_assert_equal(hud.displayed_info(), "× 정보 없음", "정보 토큰 0을 기호·텍스트로 표시")
+	run_state.player_info_tokens = 12345
+	hud.render(run_state, -1, 0, 0, false, 2, 4, "기본 경매", "기본 규칙", false, false)
+	_assert_equal(hud.displayed_hp(), "HP —", "null 플레이어 상태 방어 표시")
+	_assert_equal(hud.displayed_gold(), "—", "null 플레이어 골드 방어 표시")
+	_assert_equal(hud.displayed_info(), "◆ 정보 12345", "다수 정보 토큰 값 유지")
+
+	var promise: PromiseState = PromiseState.new()
+	promise.promise_type = GameConstants.PROMISE_KEEP_CARD_SEALED
+	promise.target_round = 9
+	run_state.active_promises.append(promise)
+	var long_promise: String = "마라와 체결한 봉인 유지 약속은 아홉 번째 라운드까지 카드를 열지 않아야 하며 위반 시 신뢰가 크게 감소합니다."
+	hud.render(run_state, 3, 3, 800, true, 4, 4, "기본 경매", "기본 규칙", false, false, long_promise)
+	_assert_true(hud.displayed_promise().contains("약속 1"), "넓은 폭에서 임박 약속 요약 유지")
+	_assert_equal((hud.get_node("%PromiseLabel") as Label).tooltip_text, long_promise, "긴 약속 전체 내용 Tooltip 제공")
+	hud.size = Vector2(1000, 104)
+	hud.call("_update_compact_mode")
+	_assert_true(hud.is_compact_mode(), "좁은 HUD 폭 감지")
+	_assert_true(hud.custom_minimum_size.y >= 66.0 and hud.custom_minimum_size.y <= 72.0, "좁은 폭에서 Body 보호용 HUD 밀도 적용")
+	_assert_equal(hud.displayed_promise(), "약속 1", "좁은 폭에서 약속 수로 축약")
+	_assert_equal(hud.displayed_survivors(), "생존 4", "좁은 폭에서 생존 인원 축약")
+	_assert_true(not (hud.get_node("%SeedLabel") as Label).visible, "좁은 일반 HUD에서 Seed 우선 숨김")
+	hud.render(run_state, 3, 3, 800, true, 4, 4, "기본 경매", "기본 규칙", false, true, long_promise)
+	_assert_true((hud.get_node("%SeedLabel") as Label).visible, "좁은 폭에서도 DEBUG on이면 Seed 표시")
+	_assert_true((hud.get_node("%DebugToggle") as CheckButton).button_pressed, "DEBUG on 상태 동기화")
+	hud.set_debug_available(false)
+	_assert_true(not (hud.get_node("%DebugToggle") as CheckButton).visible, "개발 설정이 꺼지면 DEBUG 토글 숨김")
+	hud.set_debug_available(true)
+
+	run_state.current_phase = GameConstants.Phase.POST_AUCTION
+	hud.render(run_state, 3, 3, 800, true, 4, 4, "기본 경매", "기본 규칙", false, false, long_promise)
+	_assert_equal(hud.displayed_phase(), "낙찰 후 처리", "긴 phase명 낙찰 후 처리 표시")
+	_assert_true((hud.get_node("%PhaseLabel") as Label).text_overrun_behavior != TextServer.OVERRUN_NO_TRIMMING, "긴 phase명 overflow 방지")
+	run_state.current_phase = GameConstants.Phase.ROUND_END
+	hud.render(run_state, 3, 3, 800, true, 4, 4, "기본 경매", "기본 규칙", false, false, long_promise)
+	_assert_equal(hud.displayed_phase(), "라운드 종료", "긴 phase명 라운드 종료 표시")
+	run_state.current_phase = GameConstants.Phase.RUN_RESULT
+	hud.render(run_state, -1, 0, 0, false, 1, 4, "기본 경매", "기본 규칙", false, false)
+	_assert_equal(hud.displayed_phase(), "게임 결과", "RUN_RESULT 전환에서도 HUD 안전 렌더")
+	hud.free()
+
 func _test_visual_design_system_and_components() -> void:
 	var theme: Theme = load("res://themes/last_bid_theme.tres") as Theme
 	_assert_true(theme != null, "Milestone 6 공통 Theme 로드")
@@ -1591,6 +1873,12 @@ func _test_visual_design_system_and_components() -> void:
 		&"Modal",
 		&"Toast",
 		&"StatusBadge",
+		&"PortraitFrame",
+		&"VitalBadge",
+		&"ActionBadge",
+		&"HudPhaseBadge",
+		&"HudStatPanel",
+		&"HudSecondaryPanel",
 	]:
 		_assert_true(theme.has_stylebox(&"panel", variation), "%s 패널 스타일 정의" % variation)
 	for variation: StringName in [
@@ -1787,15 +2075,62 @@ func _test_violation_warning_and_visual_feedback() -> void:
 func _test_visual_layout_resolutions_and_scales() -> void:
 	var packed_scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
 	for resolution: Vector2i in UiPreferences.SUPPORTED_RESOLUTIONS:
-		var viewport: SubViewport = SubViewport.new()
-		viewport.size = resolution
-		root.add_child(viewport)
-		var ui: Control = packed_scene.instantiate() as Control
-		viewport.add_child(ui)
-		await process_frame
-		_assert_equal(ui.size, Vector2(resolution), "%dx%d에서 루트 UI 확장" % [resolution.x, resolution.y])
-		viewport.free()
-		await process_frame
+		for scale: float in UiPreferences.SUPPORTED_SCALES:
+			var logical_resolution: Vector2i = Vector2i(
+				roundi(float(resolution.x) / scale),
+				roundi(float(resolution.y) / scale)
+			)
+			var viewport: SubViewport = SubViewport.new()
+			viewport.size = logical_resolution
+			root.add_child(viewport)
+			var ui: Control = packed_scene.instantiate() as Control
+			viewport.add_child(ui)
+			var page_margin: MarginContainer = ui.get_node("PageMargin") as MarginContainer
+			page_margin.visible = true
+			(ui.get_node("%MainMenu") as MainMenu).visible = false
+			await process_frame
+			_assert_equal(
+				ui.size,
+				Vector2(logical_resolution),
+				"%dx%d · UI %d%%에서 루트 UI 확장"
+				% [resolution.x, resolution.y, roundi(scale * 100.0)]
+			)
+			var page: Control = ui.get_node("PageMargin/Page") as Control
+			var available: Vector2 = Vector2(logical_resolution) - Vector2(28, 24)
+			var minimum: Vector2 = page.get_combined_minimum_size()
+			_assert_true(
+				minimum.x <= available.x + 1.0 and minimum.y <= available.y + 1.0,
+				"%dx%d · UI %d%%에서 NPC 카드 포함 레이아웃 수용 (%s)"
+				% [resolution.x, resolution.y, roundi(scale * 100.0), minimum]
+			)
+			var participant_panel: ParticipantPanel = ui.get_node("%ParticipantPanel") as ParticipantPanel
+			var participant_list: VBoxContainer = participant_panel.get_node("%ParticipantList") as VBoxContainer
+			var participant_scroll: ScrollContainer = participant_panel.get_node("Column/ParticipantScroll") as ScrollContainer
+			var top_hud: TopHud = ui.get_node("%TopHud") as TopHud
+			_assert_equal(participant_list.get_child_count(), 4, "%dx%d · UI %d%%에서 참가자 카드 4개 유지" % [resolution.x, resolution.y, roundi(scale * 100.0)])
+			_assert_true(
+				participant_scroll.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED
+				and participant_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED,
+				"%dx%d · UI %d%%에서 세로 스크롤만 사용"
+				% [resolution.x, resolution.y, roundi(scale * 100.0)]
+			)
+			_assert_true(
+				top_hud.get_node("%PhaseLabel").visible
+				and top_hud.get_node("%RoundLabel").visible
+				and top_hud.get_node("%HpLabel").visible
+				and top_hud.get_node("%GoldValueLabel").visible
+				and top_hud.get_node("%InfoLabel").visible,
+				"%dx%d · UI %d%%에서 HUD 핵심 정보 유지"
+				% [resolution.x, resolution.y, roundi(scale * 100.0)]
+			)
+			if resolution == Vector2i(1280, 720) and is_equal_approx(scale, 1.2):
+				var body: Control = ui.get_node("PageMargin/Page/Body") as Control
+				var action_bar: PanelContainer = ui.get_node("%ActionBar") as PanelContainer
+				_assert_true(top_hud.size.y <= 108.0, "1280x720 · UI 120%에서 HUD 높이 108px 이하")
+				_assert_true(body.size.y >= 340.0, "1280x720 · UI 120%%에서 Body 사용 공간 유지 (%s)" % body.size)
+				_assert_true(action_bar.size.y >= 64.0, "1280x720 · UI 120%에서 ActionBar 공간 유지")
+			viewport.free()
+			await process_frame
 
 	var ui: Control = packed_scene.instantiate() as Control
 	root.add_child(ui)
@@ -1818,10 +2153,12 @@ func _test_visual_layout_resolutions_and_scales() -> void:
 		controller.run_state.current_phase = phase
 		ui.refresh_ui()
 		await process_frame
-		var phase_minimum: Vector2 = page.get_combined_minimum_size()
+		var top_hud: TopHud = ui.get_node("%TopHud") as TopHud
 		for scale: float in UiPreferences.SUPPORTED_SCALES:
 			var logical_size: Vector2 = Vector2(1280, 720) / scale
 			var available: Vector2 = logical_size - Vector2(28, 24)
+			top_hud.apply_responsive_width(available.x)
+			var phase_minimum: Vector2 = page.get_combined_minimum_size()
 			_assert_true(
 				phase_minimum.x <= available.x + 1.0 and phase_minimum.y <= available.y + 1.0,
 				"%s 화면이 1280x720 · UI %d%%에서 수용 (%s)"
@@ -2043,7 +2380,7 @@ func _prepare_share_knowledge(
 
 func _promise_betrayal_trace(seed_value: int) -> Dictionary:
 	var controller: GameFlowController = _new_controller(seed_value)
-	controller.npc_run_state_for(&"npc_3").secret_goal_id = &"volt_win_auctions"
+	controller.npc_run_state_for(&"npc_3").secret_goal_id = &"rowan_win_auctions"
 	_install_offer(controller, &"npc_3", GameConstants.OfferType.MUTUAL_PASS)
 	controller.request_accept_offer()
 	var promise: PromiseState = controller.run_state.active_promises[0]
