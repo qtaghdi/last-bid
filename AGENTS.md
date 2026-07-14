@@ -4,7 +4,7 @@
 
 **LAST BID** is a single-player auction mind-game built with Godot 4 and GDScript.
 
-The current stable baseline is the completed Milestone 5 prototype. It extends Milestone 4 negotiation with run-scoped promises, fulfillment and violation checks, NPC-specific reputation and recent memory, deterministic personality-based betrayal, and player-facing promise UI.
+The current stable baseline is the completed Milestone 6 visual prototype. It preserves the Milestone 5 gameplay and deterministic RNG while replacing the text-heavy wireframe with a shared visual design system, responsive phase layouts, onboarding, tooltips, feedback, and accessibility settings.
 
 Primary prototype goals:
 
@@ -31,6 +31,9 @@ Primary prototype goals:
 - Hidden goals, emotions, tells, temporary relationships, and one-use emergency abilities
 - Six promise types with explicit fulfillment, violation, cancellation, reward, and penalty state
 - NPC-specific reputation, five-entry recent memory, and deterministic betrayal decisions
+- A themed three-column game shell with reusable participant, card, seal, promise, and result components
+- Main menu, first-run coach marks, gameplay term tooltips, violation warnings, toasts, and minimal feedback motion
+- Window mode, resolution, UI scale, text size, reduce-motion, tutorial replay, and debug-availability settings
 
 ## Required Technology
 
@@ -53,7 +56,7 @@ Use the project-defined Godot 4 stable version.
 - Do not use beta, release candidate, dev, or nightly builds.
 - Avoid APIs unavailable in the selected Godot version.
 
-## Current Baseline — Milestone 5
+## Current Baseline — Milestone 6
 
 The items below are implemented and must remain working. Preserve this baseline unless the user explicitly requests a change. Do not infer or pre-build future milestone features from placeholders in the UI or data.
 
@@ -75,7 +78,7 @@ Included:
 - Actor death
 - Deterministic RNG
 - Debug logging
-- Playable wireframe UI
+- Playable visual prototype UI
 - Automated or headless tests where practical
 - Actual card data separated from public and hidden clues
 - Per-actor clue allocation and confidence
@@ -87,7 +90,7 @@ Included:
 - Shared top HUD, participant status cards, NPC reaction panel, and bottom action bar
 - A separate, default-closed debug drawer
 - Same-seed and new-seed restart actions
-- Responsive 16:9 desktop layout at 1280×720 and 1920×1080
+- Responsive 16:9 desktop layout at 1280×720, 1600×900, 1920×1080, and 2560×1440
 - A post-auction action must resolve before JUDGMENT can begin
 - Three sequential seals with data-driven reveal text and accident effects
 - Actual risk tier determines seal accident probability through the central RNG
@@ -111,6 +114,17 @@ Included:
 - Personality, reputation, relationship, survival pressure, revenge, and hidden goals in betrayal evaluation
 - A deterministic promise/betrayal RNG stream that does not consume gameplay RNG
 - Active promise, deadline, violation, reputation, memory, betrayal, result, and DEBUG presentation
+- Shared named color, spacing, typography, radius, border, shadow, and motion tokens
+- Reusable themed button, panel, card, character, badge, modal, toast, divider, progress, and scroll-list styles
+- Three-column game shell with progressive disclosure and phase-specific context rails
+- Replaceable portrait texture slots with geometric silhouette placeholders
+- Independent three-seal visual state, card status badges, and reveal feedback
+- Main menu with new-game, same-seed, seed-input, settings, and quit actions
+- First-run PRE_INFO, NEGOTIATION, AUCTION, POST_AUCTION, and promise coach marks
+- Fourteen action-oriented gameplay term tooltips
+- Player confirmation before promise-violating bids, seal opening, burning, or sale; confirmation does not block forcing the action
+- Presentation-only phase fades, price emphasis, damage flash, reveal emphasis, and toasts with reduce-motion support
+- Window/fullscreen, resolution, 80/100/120 UI scale, text size, tutorial replay, and debug-availability settings
 
 Excluded:
 
@@ -123,6 +137,7 @@ Excluded:
 - Passive items
 - Shop
 - Pixel-art production
+- Final character portraits, card illustrations, auction-house background, fonts, and icon production
 - Audio
 - Complex animation
 - Multiplayer
@@ -425,7 +440,7 @@ Gameplay systems must not directly perform UI animations.
 
 ## UI Rules
 
-The Milestone 5 UI is the current playable UX baseline and must remain usable without reading the debug log.
+The Milestone 6 visual prototype is the current playable UX baseline and must remain usable without reading the debug log.
 
 Display:
 
@@ -463,12 +478,19 @@ Display:
 - NPC reputation, one recent memory summary, active promise count, and recent betrayal state
 - Promise fulfillment, violation, cancellation, and NPC betrayal results outside the debug log
 - Full PromiseState fields, betrayal scores, memory severity, internal IDs, and promise RNG state only in DEBUG
+- Main menu and same-seed/explicit-seed start actions
+- A three-column information hierarchy with secondary participant details collapsed by default
+- Three independent seal slots and card status badges that also use text or symbols, not color alone
+- First-run coach marks that show one step at a time, can be skipped or disabled, and can be replayed from settings
+- Tooltips for risk, value, timing, target, seals, accident chance, tells, relationship, reputation, promises, betrayal, delayed effects, judgment, and information tokens
+- Confirmation before a player intentionally violates an active promise, while preserving the option to proceed
+- Window/fullscreen, supported resolution, UI scale, text size, reduce-motion, tutorial, and debug availability controls
 
 Use `Container` nodes so the layout does not immediately break at another desktop resolution.
 
 Keep palette and interactive states in a shared Theme or UI palette rather than scattering colors through scripts and scenes.
 
-Treat the wireframe as non-production presentation. Do not add final pixel art, audio, or elaborate animation unless explicitly requested.
+Treat the visual prototype as non-production presentation. Do not add final pixel art, final illustrations, audio, or elaborate animation unless explicitly requested.
 
 ## Testing
 
@@ -529,6 +551,14 @@ Tests should cover at minimum:
 - Actor death and destroyed-card policies cancel or resolve promises without penalizing unavoidable failure
 - Active promise and result UI hides internal IDs while DEBUG exposes full state
 - Twenty seeded full runs finish with promise acceptance enabled
+- The shared Theme and required reusable style resources load successfully
+- Main menu, settings, first-run onboarding, skip/disable/replay, tooltips, and feedback layers remain operational
+- Participant cards keep secondary relationship, reputation, tell, memory, and promise details collapsed by default
+- Three seal slots reflect sealed, partially opened, and fully revealed state
+- Promise-violating actions warn first and can still be forced by the player
+- All phase layouts fit 1280×720 at 80%, 100%, and 120% UI scale
+- Root UI expands at 1280×720, 1600×900, 1920×1080, and 2560×1440
+- Three simultaneous active promises remain usable without overflowing the minimum layout
 
 When an automated test is impractical, document a deterministic manual verification procedure in `README.md`.
 
