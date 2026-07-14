@@ -1,9 +1,9 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/main_ui.gd" id="1_ui"]
 [ext_resource type="Script" path="res://scripts/core/game_flow_controller.gd" id="2_controller"]
 [ext_resource type="Texture2D" path="res://public/main-title.png" id="3_background"]
-[ext_resource type="Theme" path="res://themes/wireframe_theme.tres" id="4_theme"]
+[ext_resource type="Theme" path="res://themes/last_bid_theme.tres" id="4_theme"]
 [ext_resource type="PackedScene" path="res://scenes/ui/top_hud.tscn" id="5_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/participant_panel.tscn" id="6_participants"]
 [ext_resource type="PackedScene" path="res://scenes/ui/card_info_panel.tscn" id="7_card"]
@@ -15,6 +15,11 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/debug_drawer.tscn" id="13_debug"]
 [ext_resource type="PackedScene" path="res://scenes/ui/negotiation_panel.tscn" id="14_negotiation"]
 [ext_resource type="PackedScene" path="res://scenes/ui/active_promise_panel.tscn" id="15_promises"]
+[ext_resource type="PackedScene" path="res://scenes/ui/main_menu.tscn" id="16_menu"]
+[ext_resource type="PackedScene" path="res://scenes/ui/settings_modal.tscn" id="17_settings"]
+[ext_resource type="PackedScene" path="res://scenes/ui/tutorial_overlay.tscn" id="18_tutorial"]
+[ext_resource type="PackedScene" path="res://scenes/ui/toast_layer.tscn" id="19_toast"]
+[ext_resource type="PackedScene" path="res://scenes/ui/confirmation_modal.tscn" id="20_confirmation"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -55,16 +60,16 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 18.0
-offset_top = 16.0
-offset_right = -18.0
-offset_bottom = -16.0
+offset_left = 14.0
+offset_top = 12.0
+offset_right = -14.0
+offset_bottom = -12.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Page" type="VBoxContainer" parent="PageMargin"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
 
 [node name="TopHud" parent="PageMargin/Page" instance=ExtResource("5_hud")]
 unique_name_in_owner = true
@@ -82,15 +87,11 @@ layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="Center" type="VBoxContainer" parent="PageMargin/Page/Body"]
-custom_minimum_size = Vector2(430, 0)
+custom_minimum_size = Vector2(442, 0)
 layout_mode = 2
-size_flags_horizontal = 4
+size_flags_horizontal = 3
 theme_override_constants/separation = 8
-
-[node name="ActivePromisePanel" parent="PageMargin/Page/Body/Center" instance=ExtResource("15_promises")]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
+alignment = 1
 
 [node name="CardInfoPanel" parent="PageMargin/Page/Body/Center" instance=ExtResource("7_card")]
 unique_name_in_owner = true
@@ -102,11 +103,6 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 size_flags_vertical = 3
-
-[node name="AuctionPanel" parent="PageMargin/Page/Body/Center" instance=ExtResource("9_auction")]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
 
 [node name="PostAuctionPanel" parent="PageMargin/Page/Body/Center" instance=ExtResource("10_post")]
 unique_name_in_owner = true
@@ -126,19 +122,75 @@ visible = false
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="ReactionPanel" parent="PageMargin/Page/Body" instance=ExtResource("8_reactions")]
-unique_name_in_owner = true
+[node name="RightRail" type="VBoxContainer" parent="PageMargin/Page/Body"]
+custom_minimum_size = Vector2(280, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="ContextHeader" type="HBoxContainer" parent="PageMargin/Page/Body/RightRail"]
+layout_mode = 2
+
+[node name="ContextEyebrow" type="Label" parent="PageMargin/Page/Body/RightRail/ContextHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"EyebrowLabel"
+text = "CONTEXT"
+
+[node name="ContextPhaseLabel" type="Label" parent="PageMargin/Page/Body/RightRail/ContextHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 12
+text = "사전 정보"
+
+[node name="ActivePromisePanel" parent="PageMargin/Page/Body/RightRail" instance=ExtResource("15_promises")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="AuctionPanel" parent="PageMargin/Page/Body/RightRail" instance=ExtResource("9_auction")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="ReactionPanel" parent="PageMargin/Page/Body/RightRail" instance=ExtResource("8_reactions")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ContextGuide" type="PanelContainer" parent="PageMargin/Page/Body/RightRail"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+theme_type_variation = &"ElevatedPanel"
+
+[node name="ContextGuideColumn" type="VBoxContainer" parent="PageMargin/Page/Body/RightRail/ContextGuide"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="GuideTitle" type="Label" parent="PageMargin/Page/Body/RightRail/ContextGuide/ContextGuideColumn"]
+layout_mode = 2
+theme_type_variation = &"EyebrowLabel"
+text = "NEXT DECISION"
+
+[node name="ContextGuideLabel" type="Label" parent="PageMargin/Page/Body/RightRail/ContextGuide/ContextGuideColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(244, 58)
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "공개 단서와 NPC 반응을 비교하세요."
+autowrap_mode = 2
 
 [node name="ActionBar" type="PanelContainer" parent="PageMargin/Page"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 72)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
+theme_type_variation = &"ElevatedPanel"
 
 [node name="Row" type="HBoxContainer" parent="PageMargin/Page/ActionBar"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
 
 [node name="ActionHint" type="Label" parent="PageMargin/Page/ActionBar/Row"]
 unique_name_in_owner = true
@@ -152,29 +204,33 @@ autowrap_mode = 2
 
 [node name="InvestigateButton" type="Button" parent="PageMargin/Page/ActionBar/Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(175, 48)
+custom_minimum_size = Vector2(155, 44)
 layout_mode = 2
+theme_type_variation = &"PrimaryButton"
 text = "추가 조사 · INFO 2"
 
 [node name="BidButton" type="Button" parent="PageMargin/Page/ActionBar/Row"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(175, 48)
+custom_minimum_size = Vector2(155, 44)
 layout_mode = 2
+theme_type_variation = &"PrimaryButton"
 text = "첫 입찰 200 G"
 
 [node name="PassButton" type="Button" parent="PageMargin/Page/ActionBar/Row"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(125, 48)
+custom_minimum_size = Vector2(110, 44)
 layout_mode = 2
+theme_type_variation = &"SecondaryButton"
 text = "패스"
 
 [node name="AdvanceButton" type="Button" parent="PageMargin/Page/ActionBar/Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(170, 48)
+custom_minimum_size = Vector2(150, 44)
 layout_mode = 2
-text = "경매 시작"
+theme_type_variation = &"PrimaryButton"
+text = "협상으로"
 
 [node name="DebugPanel" parent="." instance=ExtResource("13_debug")]
 unique_name_in_owner = true
@@ -190,3 +246,48 @@ offset_right = -12.0
 offset_bottom = -12.0
 grow_horizontal = 0
 grow_vertical = 2
+
+[node name="DamageFlash" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+modulate = Color(1, 1, 1, 0)
+
+[node name="TransitionOverlay" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+modulate = Color(1, 1, 1, 0)
+
+[node name="MainMenu" parent="." instance=ExtResource("16_menu")]
+unique_name_in_owner = true
+layout_mode = 1
+
+[node name="TutorialOverlay" parent="." instance=ExtResource("18_tutorial")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="ToastLayer" parent="." instance=ExtResource("19_toast")]
+unique_name_in_owner = true
+layout_mode = 1
+
+[node name="ConfirmationModal" parent="." instance=ExtResource("20_confirmation")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="SettingsModal" parent="." instance=ExtResource("17_settings")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1

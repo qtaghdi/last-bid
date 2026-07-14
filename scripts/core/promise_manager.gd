@@ -409,6 +409,58 @@ func active_for(actor_id: StringName) -> Array[PromiseState]:
 func active_count_for(actor_id: StringName) -> int:
 	return active_for(actor_id).size()
 
+func player_violation_warning(
+	action: StringName,
+	target_instance_id: StringName = &"",
+	target_actor_id: StringName = &""
+) -> String:
+	for promise: PromiseState in _run_state.active_promises:
+		if not promise.has_obligor(GameConstants.PLAYER_ID):
+			continue
+		var violates: bool = false
+		match action:
+			&"bid":
+				violates = (
+					promise.target_round == _run_state.current_round
+					and promise.promise_type in [
+						GameConstants.PROMISE_SKIP_AUCTION,
+						GameConstants.PROMISE_MUTUAL_PASS,
+					]
+				)
+			&"open_seal":
+				violates = (
+					promise.promise_type == GameConstants.PROMISE_KEEP_CARD_SEALED
+					and promise.target_card_instance_id == target_instance_id
+				)
+			&"burn_card":
+				violates = (
+					promise.target_card_instance_id == target_instance_id
+					and promise.promise_type in [
+						GameConstants.PROMISE_HOLD_CARD,
+						GameConstants.PROMISE_TRANSFER_CARD,
+					]
+				)
+			&"sell_card":
+				violates = (
+					promise.target_card_instance_id == target_instance_id
+					and (
+						promise.promise_type == GameConstants.PROMISE_HOLD_CARD
+						or (
+							promise.promise_type == GameConstants.PROMISE_TRANSFER_CARD
+							and target_actor_id != promise.target_actor_id
+						)
+					)
+				)
+		if not violates:
+			continue
+		var counterpart: ActorState = _actor_by_id(_npc_counterpart_id(promise))
+		return "이 행동은 %s와의 ‘%s’을 위반합니다.\n%s" % [
+			counterpart.display_name if counterpart != null else "상대",
+			promise_type_name(promise.promise_type),
+			violation_text(promise.promise_type),
+		]
+	return ""
+
 func recent_betrayal_by(actor_id: StringName) -> bool:
 	for index: int in range(_run_state.betrayal_history.size() - 1, -1, -1):
 		var betrayal: Dictionary = _run_state.betrayal_history[index]

@@ -1,0 +1,43 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/seal_indicator.gd" id="1"]
+
+[node name="SealIndicator" type="HBoxContainer"]
+theme_override_constants/separation = 6
+script = ExtResource("1")
+
+[node name="SealSlot1" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(62, 28)
+layout_mode = 2
+theme_type_variation = &"StatusBadge"
+
+[node name="Seal1" type="Label" parent="SealSlot1"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "◇ 1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SealSlot2" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(62, 28)
+layout_mode = 2
+theme_type_variation = &"StatusBadge"
+
+[node name="Seal2" type="Label" parent="SealSlot2"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "◇ 2"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SealSlot3" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(62, 28)
+layout_mode = 2
+theme_type_variation = &"StatusBadge"
+
+[node name="Seal3" type="Label" parent="SealSlot3"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "◇ 3"
+horizontal_alignment = 1
+vertical_alignment = 1

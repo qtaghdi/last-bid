@@ -9,18 +9,22 @@ signal sale_requested(buyer_id: StringName, price: int, clue_id: StringName)
 @onready var result_label: Label = %ResultLabel
 @onready var ownership_label: Label = %OwnershipLabel
 @onready var seal_status: RichTextLabel = %SealStatus
+@onready var seal_indicator: SealIndicator = %SealIndicator
+@onready var accident_label: Label = %AccidentLabel
 @onready var result_message: Label = %ResultMessage
 @onready var open_button: Button = %OpenButton
 @onready var keep_button: Button = %KeepButton
 @onready var sell_button: Button = %SellButton
 @onready var burn_button: Button = %BurnButton
-@onready var sale_controls: HBoxContainer = %SaleControls
+@onready var sale_controls: GridContainer = %SaleControls
 @onready var buyer_option: OptionButton = %BuyerOption
 @onready var price_input: SpinBox = %PriceInput
 @onready var clue_option: OptionButton = %ClueOption
 @onready var offer_button: Button = %OfferButton
+@onready var interest_label: Label = %InterestLabel
 
 var _sale_expanded: bool = false
+var _last_controller: GameFlowController
 
 func _ready() -> void:
 	open_button.pressed.connect(func() -> void: open_requested.emit())
@@ -28,9 +32,14 @@ func _ready() -> void:
 	burn_button.pressed.connect(func() -> void: burn_requested.emit())
 	sell_button.pressed.connect(_toggle_sale_controls)
 	offer_button.pressed.connect(_emit_sale_request)
+	buyer_option.item_selected.connect(func(_index: int) -> void: _update_sale_interest())
+	price_input.value_changed.connect(func(_value: float) -> void: _update_sale_interest())
 	price_input.value = GameConstants.DEFAULT_SALE_PRICE
+	seal_status.tooltip_text = TooltipTerms.text("봉인")
+	accident_label.tooltip_text = TooltipTerms.text("사고 확률")
 
 func render(controller: GameFlowController) -> void:
+	_last_controller = controller
 	var run: RunState = controller.run_state
 	var instance: CardInstance = controller.current_post_instance()
 	var definition: CardDefinition = CardCatalog.by_id(instance.definition_id) if instance != null else run.current_card
@@ -51,6 +60,15 @@ func render(controller: GameFlowController) -> void:
 		GameConstants.MAX_SEALED_CARDS,
 	]
 	seal_status.text = _seal_text(controller, instance, definition)
+	seal_indicator.render(
+		instance.opened_seals if instance != null else 0,
+		instance != null and instance.reveal_level == GameConstants.RevealLevel.FULLY_REVEALED
+	)
+	accident_label.text = (
+		"다음 봉인 사고 확률 · %d%%" % controller.post_auction.next_accident_percent()
+		if instance != null and instance.sealed
+		else "봉인 해제 완료"
+	)
 	result_message.text = (
 		controller.post_auction.last_result_message
 		if controller.post_auction != null
@@ -80,6 +98,7 @@ func render(controller: GameFlowController) -> void:
 	sale_controls.visible = _sale_expanded
 	if sale_controls.visible:
 		_refresh_sale_options(controller)
+		_update_sale_interest()
 
 func displayed_text() -> String:
 	return "\n".join([result_label.text, ownership_label.text, seal_status.text, result_message.text])
@@ -91,13 +110,7 @@ func _seal_text(
 ) -> String:
 	if instance == null:
 		return "[color=#%s]낙찰 없음 · 바로 심판으로 진행할 수 있습니다.[/color]" % UiPalette.bbcode(UiPalette.MUTED)
-	var lines: PackedStringArray = [
-		"[b]봉인 %d / %d[/b]    다음 사고 확률  %d%%" % [
-			instance.opened_seals,
-			GameConstants.MAX_SEALS,
-			controller.post_auction.next_accident_percent(),
-		]
-	]
+	var lines: PackedStringArray = []
 	for index: int in range(instance.revealed_seal_texts.size()):
 		lines.append("[color=#%s]◆ 봉인 %d  %s[/color]" % [
 			UiPalette.bbcode(UiPalette.GOLD_BRIGHT),
@@ -134,6 +147,17 @@ func _emit_sale_request() -> void:
 	var buyer_id: StringName = buyer_option.get_item_metadata(buyer_option.selected) as StringName
 	var clue_id: StringName = clue_option.get_item_metadata(clue_option.selected) as StringName
 	sale_requested.emit(buyer_id, int(price_input.value), clue_id)
+
+func _update_sale_interest() -> void:
+	if _last_controller == null or buyer_option.item_count == 0:
+		interest_label.text = "수락 가능성 · 낮음"
+		return
+	var buyer_id: StringName = buyer_option.get_item_metadata(buyer_option.selected) as StringName
+	var evaluation: Dictionary = _last_controller.npc_ai.evaluation_for(buyer_id)
+	var estimated_value: int = int(evaluation.get("final_value", 0))
+	var difference: int = estimated_value - int(price_input.value)
+	var interest: String = "높음" if difference >= 150 else ("보통" if difference >= 0 else "낮음")
+	interest_label.text = "수락 가능성 · %s" % interest
 
 func _reveal_name(instance: CardInstance) -> String:
 	if instance == null:

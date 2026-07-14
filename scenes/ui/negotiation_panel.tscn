@@ -1,14 +1,16 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/negotiation_panel.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/ui/silhouette_portrait.gd" id="2"]
 
 [node name="NegotiationPanel" type="PanelContainer"]
-custom_minimum_size = Vector2(430, 360)
+custom_minimum_size = Vector2(450, 368)
+theme_type_variation = &"ElevatedPanel"
 script = ExtResource("1")
 
 [node name="Column" type="VBoxContainer" parent="."]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 5
 
 [node name="Header" type="HBoxContainer" parent="Column"]
 layout_mode = 2
@@ -16,7 +18,7 @@ layout_mode = 2
 [node name="Title" type="Label" parent="Column/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_type_variation = &"GoldLabel"
+theme_type_variation = &"EyebrowLabel"
 theme_override_font_sizes/font_size = 18
 text = "NEGOTIATION"
 
@@ -26,44 +28,87 @@ layout_mode = 2
 theme_type_variation = &"MutedLabel"
 text = "OFFER 1 / 2"
 
-[node name="IssuerLabel" type="Label" parent="Column"]
+[node name="Divider" type="HSeparator" parent="Column"]
+layout_mode = 2
+
+[node name="OpponentRow" type="HBoxContainer" parent="Column"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="PortraitSlot" type="PanelContainer" parent="Column/OpponentRow"]
+custom_minimum_size = Vector2(72, 76)
+layout_mode = 2
+theme_type_variation = &"StatusBadge"
+
+[node name="Silhouette" type="Control" parent="Column/OpponentRow/PortraitSlot"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("2")
+
+[node name="OpponentInfo" type="VBoxContainer" parent="Column/OpponentRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="IssuerLabel" type="Label" parent="Column/OpponentRow/OpponentInfo"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "마라"
 
-[node name="StateLabel" type="Label" parent="Column"]
+[node name="StateLabel" type="Label" parent="Column/OpponentRow/OpponentInfo"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
 text = "감정: 긴장    관계: +0    평판: +0"
 
-[node name="PromiseBadgeLabel" type="Label" parent="Column"]
+[node name="PromiseBadge" type="PanelContainer" parent="Column/OpponentRow/OpponentInfo"]
+layout_mode = 2
+theme_type_variation = &"StatusBadge"
+
+[node name="PromiseBadgeLabel" type="Label" parent="Column/OpponentRow/OpponentInfo/PromiseBadge"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"GoldLabel"
+theme_override_font_sizes/font_size = 12
 text = "PROMISE · 봉인 유지 약속"
 
-[node name="TellLabel" type="Label" parent="Column"]
+[node name="TellLabel" type="Label" parent="Column/OpponentRow/OpponentInfo"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(386, 0)
+custom_minimum_size = Vector2(278, 0)
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 12
 text = "행동 신호 · 손끝이 가늘게 떨린다."
 autowrap_mode = 2
 
 [node name="DialogueLabel" type="RichTextLabel" parent="Column"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(386, 58)
+custom_minimum_size = Vector2(390, 38)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = false
-scroll_active = false
+scroll_active = true
 text = "“그 봉인은 열지 마요.”"
 
-[node name="OfferLabel" type="RichTextLabel" parent="Column"]
+[node name="TermsPanel" type="PanelContainer" parent="Column"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"CardPanel"
+
+[node name="TermsColumn" type="VBoxContainer" parent="Column/TermsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="TermsTitle" type="Label" parent="Column/TermsPanel/TermsColumn"]
+layout_mode = 2
+theme_type_variation = &"EyebrowLabel"
+text = "OFFER TERMS"
+
+[node name="OfferLabel" type="RichTextLabel" parent="Column/TermsPanel/TermsColumn"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(386, 104)
+custom_minimum_size = Vector2(370, 70)
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
@@ -73,7 +118,7 @@ text = "개봉 금지 · 현재 경매 물품\n약속: 봉인 유지 약속\n기
 
 [node name="ResultLabel" type="Label" parent="Column"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(386, 0)
+custom_minimum_size = Vector2(390, 0)
 layout_mode = 2
 size_flags_vertical = 3
 theme_type_variation = &"MutedLabel"
@@ -86,19 +131,22 @@ theme_override_constants/separation = 8
 
 [node name="AcceptButton" type="Button" parent="Column/Actions"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(90, 42)
+custom_minimum_size = Vector2(90, 38)
 layout_mode = 2
+theme_type_variation = &"PrimaryButton"
 text = "수락"
 
 [node name="RejectButton" type="Button" parent="Column/Actions"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(90, 42)
+custom_minimum_size = Vector2(90, 38)
 layout_mode = 2
+theme_type_variation = &"SecondaryButton"
 text = "거절"
 
 [node name="CounterButton" type="Button" parent="Column/Actions"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(190, 42)
+custom_minimum_size = Vector2(190, 38)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"SecondaryButton"
 text = "가격 올리기 · 150 G"

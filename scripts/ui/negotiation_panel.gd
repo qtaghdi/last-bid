@@ -16,6 +16,7 @@ signal counter_requested(amount: int)
 @onready var accept_button: Button = %AcceptButton
 @onready var reject_button: Button = %RejectButton
 @onready var counter_button: Button = %CounterButton
+@onready var silhouette: SilhouettePortrait = %Silhouette
 
 var _displayed_text: String = ""
 
@@ -27,6 +28,12 @@ func _ready() -> void:
 			var amount: int = int(counter_button.get_meta("counter_amount", 0))
 			counter_requested.emit(amount)
 	)
+	state_label.tooltip_text = "%s\n%s" % [
+		TooltipTerms.text("Relationship"),
+		TooltipTerms.text("Reputation"),
+	]
+	tell_label.tooltip_text = TooltipTerms.text("Tell")
+	promise_badge_label.tooltip_text = TooltipTerms.text("약속")
 
 func render(controller: GameFlowController) -> void:
 	var offer: NegotiationOffer = controller.current_negotiation_offer()
@@ -47,6 +54,8 @@ func render(controller: GameFlowController) -> void:
 	var issuer: ActorState = controller.actor_by_id(offer.issuer_id)
 	var state: NpcRunState = controller.npc_run_state_for(offer.issuer_id)
 	issuer_label.text = issuer.display_name if issuer != null else String(offer.issuer_id)
+	if issuer != null:
+		silhouette.set_tint(_issuer_color(issuer.character_id))
 	state_label.text = "감정: %s    관계: %+d    평판: %+d" % [
 		NegotiationSystem.emotion_name(state.emotion) if state != null else "평온",
 		state.relationship_score if state != null else 0,
@@ -88,3 +97,14 @@ func _set_action_visibility(visible_value: bool) -> void:
 	accept_button.visible = visible_value
 	reject_button.visible = visible_value
 	counter_button.visible = visible_value
+
+func _issuer_color(character_id: StringName) -> Color:
+	match character_id:
+		GameConstants.CHARACTER_MARA:
+			return UiPalette.MARA_ACCENT
+		GameConstants.CHARACTER_VOLT:
+			return UiPalette.VOLT_ACCENT
+		GameConstants.CHARACTER_SERA:
+			return UiPalette.SERA_ACCENT
+		_:
+			return UiPalette.GOLD_MUTED
