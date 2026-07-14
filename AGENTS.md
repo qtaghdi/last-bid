@@ -221,6 +221,40 @@ Before completing an implementation task:
 
 Never claim a test passed unless it was executed. If Godot is unavailable, report that and provide the exact command for the user.
 
+## Completion Report
+
+End every implementation task with a standalone completion report in the user's language. For Korean requests, use the following labels and order:
+
+```text
+<작업 또는 마일스톤 이름>을 완료했습니다.
+
+주요 결과:
+- ...
+
+검증 결과:
+- ...
+
+영향 및 제한 사항:
+- ...
+
+Git 결과:
+- ...
+```
+
+Report requirements:
+
+- Lead with the completed outcome, not the work process.
+- Under `주요 결과`, group meaningful player-facing and technical outcomes and link important changed files with clickable paths resolved from the current workspace. Never hardcode one developer's absolute path into this file.
+- Under `검증 결과`, list only checks actually executed. Include the engine version, editor import or main-scene result, test run count, exact assertion count for each run, and `git diff --check` result when available.
+- Include tested Seed counts, viewport sizes, UI scales, layout cases, or manual flows when they were part of the verification. Do not reduce meaningful coverage to a generic “tests passed.”
+- Under `영향 및 제한 사항`, state gameplay-rule, deterministic-RNG-order, save/data compatibility, and known limitation impacts when relevant. Omit the section only when there is genuinely nothing useful to report.
+- Under `Git 결과`, include branch, commit, push, PR URL, Ready/Draft state, and CI status when Git delivery was requested. Omit it when no Git operation was requested.
+- Mark an expected but unexecuted check as `미실행` with the reason, or omit an irrelevant check. Never present planned, inherited, or assumed validation as executed.
+- Report failures and warnings explicitly, even when unrelated checks pass.
+- Keep the report factual, concise, and self-contained so the user does not need intermediate commentary to understand the result.
+
+The completion report belongs in the final response. Do not copy it into `README.md` or milestone history unless the user explicitly requests a documentation update.
+
 ## Git and Collaboration
 
 Follow `CONTRIBUTING.md`; do not duplicate its full policy here.
@@ -244,6 +278,6 @@ Required summary:
 4. Preserve architecture and information boundaries.
 5. Validate in proportion to risk.
 6. Update only the owning documentation when commands, structure, or completed behavior changes.
-7. Report changed files, behavior, commands, results, limitations, and the next useful step.
+7. Use the required Completion Report format to report changed files, behavior, commands, results, limitations, and the next useful step.
 
 Do not stop after presenting a plan when implementation was requested.
