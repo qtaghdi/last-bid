@@ -36,7 +36,13 @@ text = "마라"
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
-text = "감정: 긴장    관계: +0"
+text = "감정: 긴장    관계: +0    평판: +0"
+
+[node name="PromiseBadgeLabel" type="Label" parent="Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GoldLabel"
+text = "PROMISE · 봉인 유지 약속"
 
 [node name="TellLabel" type="Label" parent="Column"]
 unique_name_in_owner = true
@@ -55,12 +61,15 @@ fit_content = false
 scroll_active = false
 text = "“그 봉인은 열지 마요.”"
 
-[node name="OfferLabel" type="Label" parent="Column"]
+[node name="OfferLabel" type="RichTextLabel" parent="Column"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(386, 80)
+custom_minimum_size = Vector2(386, 104)
 layout_mode = 2
-text = "개봉 금지 · 현재 경매 물품\n제공: 100 G\n요청: 이번 라운드 봉인 유지"
-autowrap_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+fit_content = false
+scroll_active = true
+text = "개봉 금지 · 현재 경매 물품\n약속: 봉인 유지 약속\n기한: 다음 라운드 종료\n즉시 보상: 100 G\n이행 보상: 100 G, 평판 +1\n위반 시: 평판 -2, 50 G 손실"
 
 [node name="ResultLabel" type="Label" parent="Column"]
 unique_name_in_owner = true

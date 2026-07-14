@@ -22,6 +22,12 @@ extends Resource
 @export var negotiation_complete: bool = true
 @export var player_forced_pass: bool = false
 @export var temporary_negotiation_warning: String = ""
+@export var active_promises: Array[PromiseState] = []
+@export var resolved_promises: Array[PromiseState] = []
+@export var reputation_map: Dictionary = {}
+@export var npc_memories: Dictionary = {}
+@export var betrayal_history: Array[Dictionary] = []
+@export var promise_result_messages: Array[String] = []
 
 func reset(seed_value: int) -> void:
 	current_round = 0
@@ -45,3 +51,9 @@ func reset(seed_value: int) -> void:
 	negotiation_complete = true
 	player_forced_pass = false
 	temporary_negotiation_warning = ""
+	active_promises = []
+	resolved_promises = []
+	reputation_map = {}
+	npc_memories = {}
+	betrayal_history = []
+	promise_result_messages = []

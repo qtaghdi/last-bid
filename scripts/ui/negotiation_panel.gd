@@ -8,9 +8,10 @@ signal counter_requested(amount: int)
 @onready var progress_label: Label = %ProgressLabel
 @onready var issuer_label: Label = %IssuerLabel
 @onready var state_label: Label = %StateLabel
+@onready var promise_badge_label: Label = %PromiseBadgeLabel
 @onready var tell_label: Label = %TellLabel
 @onready var dialogue_label: RichTextLabel = %DialogueLabel
-@onready var offer_label: Label = %OfferLabel
+@onready var offer_label: RichTextLabel = %OfferLabel
 @onready var result_label: Label = %ResultLabel
 @onready var accept_button: Button = %AcceptButton
 @onready var reject_button: Button = %RejectButton
@@ -39,16 +40,24 @@ func render(controller: GameFlowController) -> void:
 		tell_label.text = "경매를 시작할 수 있습니다."
 		dialogue_label.text = "[color=#%s]이번 협상 결과를 확인하세요.[/color]" % UiPalette.bbcode(UiPalette.MUTED)
 		offer_label.text = controller.run_state.temporary_negotiation_warning
+		promise_badge_label.visible = false
 		_set_action_visibility(false)
 		_displayed_text = "\n".join([issuer_label.text, state_label.text, tell_label.text, result_label.text, offer_label.text])
 		return
 	var issuer: ActorState = controller.actor_by_id(offer.issuer_id)
 	var state: NpcRunState = controller.npc_run_state_for(offer.issuer_id)
 	issuer_label.text = issuer.display_name if issuer != null else String(offer.issuer_id)
-	state_label.text = "감정: %s    관계: %+d" % [
+	state_label.text = "감정: %s    관계: %+d    평판: %+d" % [
 		NegotiationSystem.emotion_name(state.emotion) if state != null else "평온",
 		state.relationship_score if state != null else 0,
+		controller.reputation_for(offer.issuer_id),
 	]
+	promise_badge_label.visible = offer.creates_promise
+	promise_badge_label.text = (
+		"PROMISE · %s" % PromiseManager.promise_type_name(offer.promise_type)
+		if offer.creates_promise
+		else "즉시 거래"
+	)
 	tell_label.text = "행동 신호 · %s" % offer.tell_text if not offer.tell_text.is_empty() else "행동 신호 · 뚜렷한 신호 없음"
 	dialogue_label.text = "[color=#%s]“%s”[/color]" % [UiPalette.bbcode(UiPalette.GOLD_BRIGHT), offer.dialogue]
 	offer_label.text = controller.negotiation_offer_summary(offer)
@@ -65,6 +74,7 @@ func render(controller: GameFlowController) -> void:
 	_displayed_text = "\n".join([
 		issuer_label.text,
 		state_label.text,
+		promise_badge_label.text,
 		tell_label.text,
 		offer.dialogue,
 		offer_label.text,

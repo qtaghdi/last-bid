@@ -4,7 +4,7 @@
 
 **LAST BID** is a single-player auction mind-game built with Godot 4 and GDScript.
 
-The current stable baseline is the completed Milestone 4 prototype. It adds NPC-initiated negotiation, named character profiles, hidden goals, emotions, behavioral tells, run-scoped relationships, emergency abilities, and deterministic negotiation/dialogue RNG to the Milestone 3 flow.
+The current stable baseline is the completed Milestone 5 prototype. It extends Milestone 4 negotiation with run-scoped promises, fulfillment and violation checks, NPC-specific reputation and recent memory, deterministic personality-based betrayal, and player-facing promise UI.
 
 Primary prototype goals:
 
@@ -29,6 +29,8 @@ Primary prototype goals:
 - Mara, Volt, and Sera character profiles built on the existing archetypes
 - Five offer types with accept, reject, and one counter-offer
 - Hidden goals, emotions, tells, temporary relationships, and one-use emergency abilities
+- Six promise types with explicit fulfillment, violation, cancellation, reward, and penalty state
+- NPC-specific reputation, five-entry recent memory, and deterministic betrayal decisions
 
 ## Required Technology
 
@@ -51,7 +53,7 @@ Use the project-defined Godot 4 stable version.
 - Do not use beta, release candidate, dev, or nightly builds.
 - Avoid APIs unavailable in the selected Godot version.
 
-## Current Baseline — Milestone 4
+## Current Baseline — Milestone 5
 
 The items below are implemented and must remain working. Preserve this baseline unless the user explicitly requests a change. Do not infer or pre-build future milestone features from placeholders in the UI or data.
 
@@ -101,12 +103,20 @@ Included:
 - Data-driven Mara, Volt, and Sera profiles, tells, secret goals, and dialogue
 - Separate deterministic negotiation and dialogue RNG streams
 - One-use emergency burn, life collateral, and information theft abilities
+- `PromiseState` resources tracked by a dedicated `PromiseManager`
+- Skip-auction, keep-sealed, hold-card, transfer-card, share-information, and mutual-pass promises
+- Event-driven fulfillment, violation, expiry, cancellation, reward, and penalty resolution
+- Run-scoped NPC reputation clamped to `-3...+3`, separate from relationship
+- Up to five recent memories per NPC, with severe events retained preferentially
+- Personality, reputation, relationship, survival pressure, revenge, and hidden goals in betrayal evaluation
+- A deterministic promise/betrayal RNG stream that does not consume gameplay RNG
+- Active promise, deadline, violation, reputation, memory, betrayal, result, and DEBUG presentation
 
 Excluded:
 
-- Promises and betrayal
 - Permanent reputation
-- Promise persistence and violation checks
+- Complex multi-condition or three-party contracts
+- Permanent promise or reputation persistence between runs
 - Repeated negotiation and multiple counter-offers
 - Full bluffing systems beyond the gambler's limited auction bluff
 - Character jobs
@@ -151,6 +161,7 @@ Keep these responsibilities separate:
 - Card-effect resolution
 - NPC decisions
 - Negotiation rules and offer resolution
+- Promise rules, reputation, memory, and betrayal resolution
 - Character personality and run-scoped social state
 - Actor state
 - RNG
@@ -207,6 +218,8 @@ The same seed must reproduce:
 Cosmetic randomness must not alter gameplay RNG order.
 
 Negotiation generation, tells, hidden goals, acceptance, and emergency-use rolls use the dedicated deterministic negotiation RNG. Dialogue selection uses a separate deterministic dialogue RNG. Neither stream may consume the gameplay RNG.
+
+Promise offer priority variation, NPC promise-breaking decisions, and revenge checks use a dedicated deterministic promise RNG. It must remain separate from gameplay, negotiation, and dialogue RNG streams.
 
 Negotiation evaluation accepts `KnowledgeState` and public instance state. It must not inspect exact card effects or use `CardDefinition.effects` to choose an offer.
 
@@ -320,6 +333,7 @@ scripts/core/central_rng.gd           # Seeded gameplay randomness
 scripts/core/event_bus.gd             # Gameplay and presentation events
 scripts/core/post_auction_system.gd   # Seals, accidents, keep/sale/burn/transfer
 scripts/core/negotiation_system.gd    # Offers, relationships, emotions, goals, tells
+scripts/core/promise_manager.gd       # Promise lifecycle, reputation, memory, betrayal
 scripts/cards/card_effect_system.gd   # Immediate and delayed effect resolution
 scripts/knowledge/information_service.gd
 scripts/ai/simple_npc_ai.gd
@@ -395,12 +409,23 @@ Use signals or an event bus for gameplay notifications such as:
 - `tell_triggered`
 - `secret_goal_progressed`
 - `emergency_ability_used`
+- `promise_created`
+- `promise_accepted`
+- `promise_fulfilled`
+- `promise_broken`
+- `promise_expired`
+- `promise_cancelled`
+- `reputation_changed`
+- `npc_memory_added`
+- `betrayal_committed`
+- `betrayal_reacted`
+- `active_promises_changed`
 
 Gameplay systems must not directly perform UI animations.
 
 ## UI Rules
 
-The Milestone 4 UI is the current playable UX baseline and must remain usable without reading the debug log.
+The Milestone 5 UI is the current playable UX baseline and must remain usable without reading the debug log.
 
 Display:
 
@@ -433,6 +458,11 @@ Display:
 - Accept, reject, and one counter-offer action during NEGOTIATION
 - Participant character name, emotion, recent tell, relationship, and emergency-use state
 - Hidden goals, offer scores, acceptance thresholds, tell reliability, and RNG state only in DEBUG
+- Promise type, public target, deadline, immediate reward, fulfillment reward, and violation penalty before acceptance
+- Active promises with remaining deadline, violation condition, and direct fulfillment action where applicable
+- NPC reputation, one recent memory summary, active promise count, and recent betrayal state
+- Promise fulfillment, violation, cancellation, and NPC betrayal results outside the debug log
+- Full PromiseState fields, betrayal scores, memory severity, internal IDs, and promise RNG state only in DEBUG
 
 Use `Container` nodes so the layout does not immediately break at another desktop resolution.
 
@@ -490,6 +520,15 @@ Tests should cover at minimum:
 - Mara, Volt, and Sera emergency abilities are one-use
 - Dialogue is data-driven and dialogue/negotiation RNG do not consume gameplay RNG
 - Twenty seeded full runs finish with negotiation enabled
+- Accepted offers create unique typed PromiseState resources and rejected offers do not
+- All six promise types fulfill and break on their documented events
+- Immediate rewards, fulfillment rewards, and penalties are applied at most once
+- Reputation and relationship remain within their independent bounds and reset on a new run
+- NPC memories are limited to five and affect offers, counters, dialogue, and betrayal
+- Mara, Volt, and Sera have distinct deterministic betrayal behavior
+- Actor death and destroyed-card policies cancel or resolve promises without penalizing unavoidable failure
+- Active promise and result UI hides internal IDs while DEBUG exposes full state
+- Twenty seeded full runs finish with promise acceptance enabled
 
 When an automated test is impractical, document a deterministic manual verification procedure in `README.md`.
 

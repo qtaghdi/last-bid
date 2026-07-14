@@ -12,6 +12,7 @@ var npc_ai: SimpleNpcAi
 var information_service: InformationService
 var dialogue_service: NpcDialogueService
 var negotiation: NegotiationSystem
+var promise_manager: PromiseManager
 var knowledge_states: Dictionary = {}
 var knowledge_by_lot: Dictionary = {}
 
@@ -20,6 +21,8 @@ func _ready() -> void:
 
 func start_new_run(seed_value: int = GameConstants.DEFAULT_SEED) -> void:
 	_initialize_services()
+	if promise_manager != null:
+		promise_manager.shutdown()
 	run_state = RunState.new()
 	run_state.reset(seed_value)
 	rng = CentralRng.new(seed_value)
@@ -32,10 +35,35 @@ func start_new_run(seed_value: int = GameConstants.DEFAULT_SEED) -> void:
 	auction.setup(run_state, events, rng, npc_ai)
 	effects = CardEffectSystem.new()
 	effects.setup(run_state, events, rng)
+	promise_manager = PromiseManager.new()
+	promise_manager.setup(
+		run_state,
+		events,
+		seed_value,
+		dialogue_service,
+		information_service,
+		effects
+	)
 	negotiation = NegotiationSystem.new()
-	negotiation.setup(run_state, events, seed_value, dialogue_service, information_service, effects)
+	negotiation.setup(
+		run_state,
+		events,
+		seed_value,
+		dialogue_service,
+		information_service,
+		effects,
+		promise_manager
+	)
 	post_auction = PostAuctionSystem.new()
-	post_auction.setup(run_state, events, rng, effects, npc_ai, information_service)
+	post_auction.setup(
+		run_state,
+		events,
+		rng,
+		effects,
+		npc_ai,
+		information_service,
+		promise_manager
+	)
 	actors = [
 		ActorState.create(GameConstants.PLAYER_ID, "플레이어", GameConstants.ActorType.PLAYER),
 		ActorState.create(&"npc_1", "마라", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_COLLECTOR, GameConstants.CHARACTER_MARA),
@@ -43,6 +71,7 @@ func start_new_run(seed_value: int = GameConstants.DEFAULT_SEED) -> void:
 		ActorState.create(&"npc_3", "볼트", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_GAMBLER, GameConstants.CHARACTER_VOLT),
 	]
 	negotiation.initialize_characters(actors)
+	promise_manager.initialize(actors)
 	knowledge_states = {}
 	knowledge_by_lot = {}
 	_transition_to(GameConstants.Phase.RUN_SETUP, true)
@@ -177,6 +206,28 @@ func npc_run_state_for(actor_id: StringName) -> NpcRunState:
 func npc_profile_for(actor_id: StringName) -> NpcCharacterProfile:
 	return negotiation.profile_for(actor_id) if negotiation != null else null
 
+func reputation_for(actor_id: StringName) -> int:
+	return promise_manager.reputation_for(actor_id) if promise_manager != null else 0
+
+func recent_memory_for(actor_id: StringName) -> String:
+	return promise_manager.recent_memory_summary(actor_id) if promise_manager != null else "기억 없음"
+
+func active_promise_count_for(actor_id: StringName) -> int:
+	return promise_manager.active_count_for(actor_id) if promise_manager != null else 0
+
+func recent_betrayal_by(actor_id: StringName) -> bool:
+	return promise_manager.recent_betrayal_by(actor_id) if promise_manager != null else false
+
+func active_promise_summary() -> String:
+	return promise_manager.active_summary_text() if promise_manager != null else "활성 약속 없음"
+
+func request_fulfill_promise(promise_id: StringName) -> bool:
+	if promise_manager == null:
+		return false
+	var fulfilled: bool = promise_manager.fulfill_player_promise(promise_id)
+	events.state_updated.emit()
+	return fulfilled
+
 func negotiation_offer_summary(offer: NegotiationOffer) -> String:
 	if offer == null:
 		return "현재 제안이 없습니다."
@@ -187,6 +238,39 @@ func negotiation_offer_summary(offer: NegotiationOffer) -> String:
 		lines.append("제공: %d G" % offer.offered_gold)
 	if not offer.offered_clue_id.is_empty():
 		lines.append("제공: 현재 물품의 단서 1개")
+	if offer.creates_promise:
+		lines.append("약속: %s" % PromiseManager.promise_type_name(offer.promise_type))
+		lines.append(
+			"기한: %s"
+			% (
+				"현재 경매 종료"
+				if offer.promise_target_round == run_state.current_round
+				else "%d라운드 종료" % offer.promise_target_round
+			)
+		)
+		lines.append(
+			"즉시 보상: %s"
+			% ("%d G" % offer.offered_gold if offer.offered_gold > 0 else "없음")
+		)
+		var fulfillment_rewards: PackedStringArray = []
+		if offer.promise_reward_gold > 0:
+			fulfillment_rewards.append("%d G" % offer.promise_reward_gold)
+		if offer.promise_reputation_reward > 0:
+			fulfillment_rewards.append("평판 +%d" % offer.promise_reputation_reward)
+		if not offer.promise_reward_clue_id.is_empty():
+			fulfillment_rewards.append("단서 1개")
+		lines.append(
+			"이행 보상: %s"
+			% (", ".join(fulfillment_rewards) if not fulfillment_rewards.is_empty() else "없음")
+		)
+		var penalties: PackedStringArray = ["평판 -%d" % offer.promise_reputation_penalty]
+		if offer.promise_penalty_gold > 0:
+			penalties.append("%d G 손실" % offer.promise_penalty_gold)
+		if offer.promise_penalty_hp > 0:
+			penalties.append("HP -%d" % offer.promise_penalty_hp)
+		lines.append("위반 시: %s" % ", ".join(penalties))
+		lines.append("위반 조건: %s" % promise_manager.violation_text(offer.promise_type))
+		return "\n".join(lines)
 	match offer.requested_action:
 		GameConstants.RequestedAction.SELL_CARD:
 			lines.append("요청: 카드 소유권 이전")
@@ -373,6 +457,8 @@ func debug_information_report() -> String:
 			)
 	if negotiation != null:
 		lines.append("\n" + negotiation.debug_report())
+	if promise_manager != null:
+		lines.append("\n" + promise_manager.debug_report())
 	return "\n".join(lines)
 
 func debug_effect_report() -> String:
@@ -434,6 +520,9 @@ func _begin_round(round_number: int) -> void:
 		actors
 	)
 	knowledge_by_lot[run_state.current_lot_id] = knowledge_states
+	if promise_manager != null:
+		promise_manager.update_context(actors, knowledge_by_lot)
+		promise_manager.process_round_start(round_number)
 	if post_auction != null:
 		post_auction.reset()
 	npc_ai.prepare_lot(
@@ -477,7 +566,11 @@ func _drive_npc_turns() -> void:
 		and not auction.is_complete()
 		and auction.current_actor_id() != GameConstants.PLAYER_ID
 	):
-		auction.perform_npc_turn()
+		var npc_actor_id: StringName = auction.current_actor_id()
+		if promise_manager != null and promise_manager.npc_should_pass(npc_actor_id, run_state.current_round):
+			auction.pass_current(npc_actor_id)
+		else:
+			auction.perform_npc_turn()
 		guard += 1
 		if guard >= GameConstants.AUCTION_ACTION_LIMIT:
 			events.log_debug("NPC 진행 안전장치 작동")

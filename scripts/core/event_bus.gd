@@ -44,6 +44,18 @@ signal emotion_changed(actor_id: StringName, emotion: int)
 signal tell_triggered(actor_id: StringName, tell_id: StringName, text: String)
 signal secret_goal_progressed(actor_id: StringName, goal_id: StringName, progress: int)
 signal emergency_ability_used(actor_id: StringName, ability_id: StringName)
+signal clue_shared(source_actor_id: StringName, target_actor_id: StringName, lot_id: StringName, clue_id: StringName)
+signal promise_created(promise_id: StringName, promise_type: StringName)
+signal promise_accepted(promise_id: StringName)
+signal promise_fulfilled(promise_id: StringName, fulfilled_by: StringName, reason: String)
+signal promise_broken(promise_id: StringName, broken_by: StringName, reason: String)
+signal promise_expired(promise_id: StringName, reason: String)
+signal promise_cancelled(promise_id: StringName, reason: String)
+signal reputation_changed(actor_id: StringName, value: int, delta: int)
+signal npc_memory_added(actor_id: StringName, event_type: StringName)
+signal betrayal_committed(actor_id: StringName, promise_id: StringName, reason: String)
+signal betrayal_reacted(actor_id: StringName, betrayer_id: StringName)
+signal active_promises_changed
 signal state_updated
 
 func log_debug(message: String) -> void:

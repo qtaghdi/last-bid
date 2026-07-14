@@ -12,6 +12,7 @@ var _rng: CentralRng
 var _effects: CardEffectSystem
 var _npc_ai: SimpleNpcAi
 var _information: InformationService
+var _promise_manager: PromiseManager
 var _resolved: bool = true
 
 func setup(
@@ -20,7 +21,8 @@ func setup(
 	rng: CentralRng,
 	effects: CardEffectSystem,
 	npc_ai: SimpleNpcAi,
-	information: InformationService
+	information: InformationService,
+	promise_manager: PromiseManager = null
 ) -> void:
 	_run_state = run_state
 	_events = events
@@ -28,6 +30,7 @@ func setup(
 	_effects = effects
 	_npc_ai = npc_ai
 	_information = information
+	_promise_manager = promise_manager
 	reset()
 
 func reset() -> void:
@@ -295,6 +298,16 @@ func _resolve_npc(
 	knowledge_states: Dictionary
 ) -> void:
 	var knowledge: KnowledgeState = knowledge_states.get(owner.actor_id) as KnowledgeState
+	if (
+		_promise_manager != null
+		and _promise_manager.npc_should_preserve_card(owner.actor_id, active_instance.instance_id)
+	):
+		last_npc_decision = {
+			"action": GameConstants.PostAuctionAction.KEEP,
+			"reason": "활성 약속 이행",
+		}
+		keep(owner.actor_id, actors)
+		return
 	last_npc_decision = _npc_ai.choose_post_auction_action(
 		owner,
 		knowledge,

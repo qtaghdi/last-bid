@@ -10,6 +10,7 @@ var _rng: CentralRng
 var _dialogue: NpcDialogueService
 var _information: InformationService
 var _effects: CardEffectSystem
+var _promises: PromiseManager
 var _content: NpcContentCatalog
 var _actors: Array[ActorState] = []
 var _knowledge_states: Dictionary = {}
@@ -21,7 +22,8 @@ func setup(
 	seed_value: int,
 	dialogue: NpcDialogueService,
 	information: InformationService,
-	effects: CardEffectSystem
+	effects: CardEffectSystem,
+	promises: PromiseManager
 ) -> void:
 	_run_state = run_state
 	_events = events
@@ -30,6 +32,7 @@ func setup(
 	_dialogue = dialogue
 	_information = information
 	_effects = effects
+	_promises = promises
 	_content = NpcContentCatalog.new()
 	_offer_serial = 0
 
@@ -74,7 +77,8 @@ func begin_round(actors: Array[ActorState], knowledge_states: Dictionary) -> voi
 			state.latest_offer_score = int(evaluation.get("score", 0))
 			state.latest_offer_reason = str(evaluation.get("reason", ""))
 		var score: int = int(evaluation.get("score", 0))
-		var chance: int = clampi(48 + score / 8, 48, 88)
+		var reputation: int = _promises.reputation_for(actor.actor_id) if _promises != null else 0
+		var chance: int = clampi(48 + score / 8 + reputation * 4, 28, 94)
 		var roll: int = _rng.randi_range(1, 100)
 		_events.log_debug(
 			"협상 제안 판정: %s score=%d chance=%d roll=%d"
@@ -108,12 +112,21 @@ func build_offer(issuer_id: StringName, forced_type: int = -1) -> NegotiationOff
 		return null
 	var offer_type: int = forced_type if forced_type >= 0 else _choose_offer_type(issuer)
 	var player: ActorState = _actor_by_id(GameConstants.PLAYER_ID)
-	var target_instance: CardInstance = _first_tradeable_player_card(player, issuer)
+	var target_instance: CardInstance = _first_promisable_player_card(player, issuer, offer_type)
 	var offered_clue: StringName = _shareable_clue_id(issuer_id)
 	if offer_type == GameConstants.OfferType.BUY_CARD and target_instance == null:
 		offer_type = GameConstants.OfferType.SKIP_AUCTION
 	if offer_type == GameConstants.OfferType.SHARE_INFORMATION and offered_clue.is_empty():
 		offer_type = GameConstants.OfferType.HOLD_CARD
+	if (
+		offer_type in [
+			GameConstants.OfferType.KEEP_SEALED,
+			GameConstants.OfferType.HOLD_CARD,
+			GameConstants.OfferType.TRANSFER_CARD,
+		]
+		and target_instance == null
+	):
+		offer_type = GameConstants.OfferType.MUTUAL_PASS if issuer.character_id == GameConstants.CHARACTER_VOLT else GameConstants.OfferType.SKIP_AUCTION
 	_offer_serial += 1
 	var offer: NegotiationOffer = NegotiationOffer.new()
 	offer.offer_id = StringName("offer_%02d_%s_%02d" % [_run_state.current_round, issuer.actor_id, _offer_serial])
@@ -121,7 +134,12 @@ func build_offer(issuer_id: StringName, forced_type: int = -1) -> NegotiationOff
 	offer.offer_type = offer_type
 	offer.target_lot_id = _run_state.current_lot_id
 	offer.expires_round = _run_state.current_round
-	if target_instance != null and offer_type in [GameConstants.OfferType.BUY_CARD, GameConstants.OfferType.HOLD_CARD]:
+	if target_instance != null and offer_type in [
+		GameConstants.OfferType.BUY_CARD,
+		GameConstants.OfferType.KEEP_SEALED,
+		GameConstants.OfferType.HOLD_CARD,
+		GameConstants.OfferType.TRANSFER_CARD,
+	]:
 		offer.target_card_instance_id = target_instance.instance_id
 		offer.target_display_name = target_instance.public_name_snapshot
 	else:
@@ -132,13 +150,30 @@ func build_offer(issuer_id: StringName, forced_type: int = -1) -> NegotiationOff
 	offer.can_counter = offer.offered_gold > 0
 	var state: NpcRunState = state_for(issuer.actor_id)
 	var relation: int = state.relationship_score if state != null else 0
+	var reputation: int = _promises.reputation_for(issuer.actor_id) if _promises != null else 0
+	var memory_counter_modifier: int = _promises.memory_offer_modifier(issuer.actor_id) / 2 if _promises != null else 0
 	offer.acceptance_threshold = mini(
 		issuer.gold,
-		offer.offered_gold + profile.counter_offer_tolerance + relation * 25 + _rng.randi_range(-25, 25)
+		maxi(
+			offer.offered_gold,
+			offer.offered_gold
+		+ profile.counter_offer_tolerance
+		+ relation * 25
+		+ reputation * 25
+		+ memory_counter_modifier
+		+ _rng.randi_range(-25, 25)
+		)
 	)
 	if state != null:
 		state.latest_acceptance_threshold = offer.acceptance_threshold
+	_configure_promise_offer(offer, issuer, forced_type < 0)
 	var category: StringName = _dialogue_category_for(offer_type)
+	if reputation >= 2:
+		category = &"trust_high"
+	elif reputation <= -2:
+		category = &"trust_low"
+	elif _promises != null and _promises.memories_for(issuer.actor_id).size() >= 2:
+		category = &"memory_reference"
 	offer.dialogue = _dialogue.select_line(profile.dialogue_resource_id, category)
 	var tell: Dictionary = _select_tell(profile, _tell_trigger_for(state))
 	if not tell.is_empty():
@@ -175,7 +210,11 @@ func accept_current_offer(countered: bool = false) -> bool:
 	_change_relationship(offer.issuer_id, 1)
 	_set_emotion(offer.issuer_id, GameConstants.Emotion.INTERESTED)
 	if issuer != null:
-		var category: StringName = &"counter_accept" if countered else &"accept"
+		var category: StringName = (
+			&"promise_accepted"
+			if offer.creates_promise
+			else (&"counter_accept" if countered else &"accept")
+		)
 		last_result_message = "%s: %s" % [issuer.display_name, _dialogue.select_line(issuer.character_id, category)]
 	_events.offer_accepted.emit(offer.offer_id, offer.issuer_id)
 	if state != null and offer.offer_type == GameConstants.OfferType.BUY_CARD:
@@ -194,13 +233,29 @@ func reject_current_offer() -> bool:
 	var state: NpcRunState = state_for(offer.issuer_id)
 	if state != null:
 		state.add_metric(&"rejections")
+	if _promises != null:
+		_promises.add_memory(
+			offer.issuer_id,
+			GameConstants.MEMORY_REFUSED_OFFER,
+			GameConstants.PLAYER_ID,
+			offer.issuer_id,
+			offer.target_card_instance_id,
+			1,
+			"플레이어가 제안을 거절했다"
+		)
 	_change_relationship(offer.issuer_id, -1)
 	_set_emotion(
 		offer.issuer_id,
 		GameConstants.Emotion.ANGRY if state != null and int(state.metrics.get("rejections", 0)) >= 2 else GameConstants.Emotion.NERVOUS
 	)
 	if issuer != null:
-		last_result_message = "%s: %s" % [issuer.display_name, _dialogue.select_line(issuer.character_id, &"reject")]
+		last_result_message = "%s: %s" % [
+			issuer.display_name,
+			_dialogue.select_line(
+				issuer.character_id,
+				&"promise_rejected" if offer.creates_promise else &"reject"
+			),
+		]
 	_events.offer_rejected.emit(offer.offer_id, offer.issuer_id)
 	_advance_offer()
 	return true
@@ -220,6 +275,16 @@ func counter_current_offer(amount: int) -> bool:
 	):
 		return false
 	offer.counter_count += 1
+	if _promises != null and amount >= offer.offered_gold + GameConstants.COUNTER_INCREMENT * 2:
+		_promises.add_memory(
+			offer.issuer_id,
+			GameConstants.MEMORY_COUNTERED_AGGRESSIVELY,
+			GameConstants.PLAYER_ID,
+			offer.issuer_id,
+			offer.target_card_instance_id,
+			1,
+			"플레이어가 공격적으로 조건을 올렸다"
+		)
 	_events.offer_countered.emit(offer.offer_id, amount)
 	if amount <= offer.acceptance_threshold:
 		offer.offered_gold = amount
@@ -304,6 +369,21 @@ func record_trade(from_id: StringName, to_id: StringName) -> void:
 		if state != null:
 			state.add_metric(&"trades")
 			_update_goal_progress(actor_id)
+	if _promises != null:
+		var npc_id: StringName = to_id if from_id == GameConstants.PLAYER_ID else from_id
+		var npc: ActorState = _actor_by_id(npc_id)
+		if npc != null and npc.actor_type == GameConstants.ActorType.NPC:
+			if from_id == GameConstants.PLAYER_ID or to_id == GameConstants.PLAYER_ID:
+				_promises.change_reputation(npc_id, 1, "거래 이행")
+			_promises.add_memory(
+				npc_id,
+				GameConstants.MEMORY_GOOD_TRADE,
+				from_id,
+				to_id,
+				&"",
+				1,
+				"플레이어와 거래를 완료했다"
+			)
 
 func debug_report() -> String:
 	var lines: PackedStringArray = [
@@ -326,7 +406,7 @@ func debug_report() -> String:
 		if profile == null or state == null:
 			continue
 		lines.append(
-			"%s [%s/%s] goal=%s (%d/%d) emotion=%s relation=%+d offer=%d threshold=%d tell=%s rel=%.2f emergency=%s"
+			"%s [%s/%s] goal=%s (%d/%d) emotion=%s relation=%+d reputation=%+d memories=%d offer=%d threshold=%d tell=%s rel=%.2f emergency=%s"
 			% [
 				actor.display_name,
 				profile.id,
@@ -336,6 +416,8 @@ func debug_report() -> String:
 				int(goal.get("target", 0)),
 				emotion_name(state.emotion),
 				state.relationship_score,
+				_promises.reputation_for(actor.actor_id) if _promises != null else 0,
+				_promises.memories_for(actor.actor_id).size() if _promises != null else 0,
 				state.latest_offer_score,
 				state.latest_acceptance_threshold,
 				state.recent_tell_id,
@@ -373,6 +455,10 @@ static func offer_type_name(offer_type: int) -> String:
 			return "입찰 포기"
 		GameConstants.OfferType.HOLD_CARD:
 			return "카드 보관"
+		GameConstants.OfferType.TRANSFER_CARD:
+			return "카드 이전 약속"
+		GameConstants.OfferType.MUTUAL_PASS:
+			return "상호 패스"
 		_:
 			return "알 수 없는 제안"
 
@@ -396,13 +482,16 @@ func _offer_score(actor: ActorState) -> Dictionary:
 	var card_interest: int = maxi(0, reward - risk) / 8
 	var goal_bonus: int = _secret_goal_bonus(actor, state, knowledge)
 	var relationship_modifier: int = (state.relationship_score if state != null else 0) * 15
+	var reputation_modifier: int = (_promises.reputation_for(actor.actor_id) if _promises != null else 0) * 18
+	var memory_modifier: int = _promises.memory_offer_modifier(actor.actor_id) if _promises != null else 0
+	var promise_variation: int = _promises.offer_priority_variation(actor.actor_id, _run_state.current_round) if _promises != null else 0
 	var urgency: int = _run_state.current_round * 5
 	var strategic_value: int = profile.negotiation_aggression / 2 if profile != null else 20
-	var score: int = personal_need + card_interest + risk_avoidance + goal_bonus + relationship_modifier + urgency + strategic_value
+	var score: int = personal_need + card_interest + risk_avoidance + goal_bonus + relationship_modifier + reputation_modifier + memory_modifier + promise_variation + urgency + strategic_value
 	return {
 		"score": score,
-		"reason": "need=%d interest=%d avoid=%d goal=%d relation=%d urgency=%d strategic=%d"
-		% [personal_need, card_interest, risk_avoidance, goal_bonus, relationship_modifier, urgency, strategic_value],
+		"reason": "need=%d interest=%d avoid=%d goal=%d relation=%d reputation=%d memory=%d promise_rng=%d urgency=%d strategic=%d"
+		% [personal_need, card_interest, risk_avoidance, goal_bonus, relationship_modifier, reputation_modifier, memory_modifier, promise_variation, urgency, strategic_value],
 	}
 
 func _choose_offer_type(actor: ActorState) -> int:
@@ -425,11 +514,25 @@ func _choose_offer_type(actor: ActorState) -> int:
 					return GameConstants.OfferType.SHARE_INFORMATION
 	match actor.character_id:
 		GameConstants.CHARACTER_MARA:
-			choices = [GameConstants.OfferType.KEEP_SEALED, GameConstants.OfferType.HOLD_CARD]
+			choices = [
+				GameConstants.OfferType.KEEP_SEALED,
+				GameConstants.OfferType.HOLD_CARD,
+				GameConstants.OfferType.TRANSFER_CARD,
+			]
 		GameConstants.CHARACTER_VOLT:
-			choices = [GameConstants.OfferType.SKIP_AUCTION, GameConstants.OfferType.BUY_CARD]
+			choices = [
+				GameConstants.OfferType.SKIP_AUCTION,
+				GameConstants.OfferType.MUTUAL_PASS,
+				GameConstants.OfferType.BUY_CARD,
+				GameConstants.OfferType.TRANSFER_CARD,
+			]
 		GameConstants.CHARACTER_SERA:
-			choices = [GameConstants.OfferType.SHARE_INFORMATION, GameConstants.OfferType.HOLD_CARD, GameConstants.OfferType.BUY_CARD]
+			choices = [
+				GameConstants.OfferType.SHARE_INFORMATION,
+				GameConstants.OfferType.HOLD_CARD,
+				GameConstants.OfferType.MUTUAL_PASS,
+				GameConstants.OfferType.BUY_CARD,
+			]
 		_:
 			choices = [GameConstants.OfferType.SKIP_AUCTION]
 	return choices[_rng.choose_index(choices.size())]
@@ -464,7 +567,8 @@ func _offer_gold(actor: ActorState, profile: NpcCharacterProfile, offer_type: in
 		return 0
 	var state: NpcRunState = state_for(actor.actor_id)
 	var relation: int = state.relationship_score if state != null else 0
-	var amount: int = 100 + profile.negotiation_aggression + relation * 25 + _rng.randi_range(-25, 50)
+	var reputation: int = _promises.reputation_for(actor.actor_id) if _promises != null else 0
+	var amount: int = 100 + profile.negotiation_aggression + relation * 25 + reputation * 25 + _rng.randi_range(-25, 50)
 	amount = maxi(GameConstants.COUNTER_INCREMENT, int(round(float(amount) / 50.0)) * 50)
 	return mini(actor.gold, amount)
 
@@ -478,6 +582,10 @@ func _requested_action_for(offer_type: int) -> int:
 			return GameConstants.RequestedAction.PASS_CURRENT_AUCTION
 		GameConstants.OfferType.HOLD_CARD:
 			return GameConstants.RequestedAction.KEEP_CARD
+		GameConstants.OfferType.TRANSFER_CARD:
+			return GameConstants.RequestedAction.SELL_CARD
+		GameConstants.OfferType.MUTUAL_PASS:
+			return GameConstants.RequestedAction.PASS_CURRENT_AUCTION
 		_:
 			return GameConstants.RequestedAction.REVEAL_CLUE
 
@@ -493,6 +601,10 @@ func _dialogue_category_for(offer_type: int) -> StringName:
 			return &"skip_auction"
 		GameConstants.OfferType.HOLD_CARD:
 			return &"hold_card"
+		GameConstants.OfferType.TRANSFER_CARD:
+			return &"transfer_card"
+		GameConstants.OfferType.MUTUAL_PASS:
+			return &"mutual_pass"
 		_:
 			return &"negotiation_start"
 
@@ -528,6 +640,12 @@ func _apply_offer(offer: NegotiationOffer) -> bool:
 	var player: ActorState = _actor_by_id(GameConstants.PLAYER_ID)
 	if issuer == null or player == null or issuer.gold < offer.offered_gold:
 		return false
+	if offer.creates_promise:
+		var promise: PromiseState = _promises.create_from_offer(offer) if _promises != null else null
+		if promise == null:
+			return false
+		_run_state.temporary_negotiation_warning = "활성 약속: %s" % PromiseManager.promise_type_name(promise.promise_type)
+		return true
 	match offer.offer_type:
 		GameConstants.OfferType.BUY_CARD:
 			var instance: CardInstance = player.instance_by_id(offer.target_card_instance_id)
@@ -552,6 +670,59 @@ func _apply_offer(offer: NegotiationOffer) -> bool:
 			_pay_player(issuer, player, offer.offered_gold)
 			_run_state.temporary_negotiation_warning = "카드를 보관해 달라는 요청을 수락했습니다."
 	return true
+
+func _configure_promise_offer(
+	offer: NegotiationOffer,
+	issuer: ActorState,
+	allow_future_skip: bool
+) -> void:
+	if offer.offer_type == GameConstants.OfferType.BUY_CARD:
+		return
+	offer.creates_promise = true
+	offer.promise_target_lot_id = _run_state.current_lot_id
+	offer.promise_reputation_reward = 1
+	offer.promise_reputation_penalty = 2
+	offer.promise_penalty_gold = 50
+	offer.promise_target_round = _run_state.current_round
+	offer.promise_obligor_ids = [GameConstants.PLAYER_ID]
+	match offer.offer_type:
+		GameConstants.OfferType.SKIP_AUCTION:
+			offer.promise_type = GameConstants.PROMISE_SKIP_AUCTION
+			if allow_future_skip and _rng.randf() <= 0.25:
+				offer.promise_target_round += 1
+			offer.promise_reward_gold = _reserved_reward_gold(issuer, offer.offered_gold, 100)
+		GameConstants.OfferType.KEEP_SEALED:
+			offer.promise_type = GameConstants.PROMISE_KEEP_CARD_SEALED
+			offer.promise_target_round += 1
+			offer.promise_target_card_instance_id = offer.target_card_instance_id
+			offer.promise_reward_gold = _reserved_reward_gold(issuer, offer.offered_gold, 100)
+		GameConstants.OfferType.HOLD_CARD:
+			offer.promise_type = GameConstants.PROMISE_HOLD_CARD
+			offer.promise_target_round += 1
+			offer.promise_target_card_instance_id = offer.target_card_instance_id
+			offer.promise_reward_gold = _reserved_reward_gold(issuer, offer.offered_gold, 100)
+		GameConstants.OfferType.TRANSFER_CARD:
+			offer.promise_type = GameConstants.PROMISE_TRANSFER_CARD
+			offer.promise_target_round += 1
+			offer.promise_target_actor_id = issuer.actor_id
+			offer.promise_target_card_instance_id = offer.target_card_instance_id
+			offer.promise_reward_gold = _reserved_reward_gold(issuer, offer.offered_gold, 150)
+			offer.promise_penalty_gold = 100
+		GameConstants.OfferType.SHARE_INFORMATION:
+			offer.promise_type = GameConstants.PROMISE_SHARE_INFORMATION
+			offer.promise_target_round += 1
+			offer.promise_obligor_ids = [issuer.actor_id]
+			offer.promise_reward_clue_id = offer.offered_clue_id
+			offer.promise_penalty_gold = 0
+		GameConstants.OfferType.MUTUAL_PASS:
+			offer.promise_type = GameConstants.PROMISE_MUTUAL_PASS
+			offer.promise_obligor_ids = [GameConstants.PLAYER_ID, issuer.actor_id]
+			offer.promise_reward_gold = _reserved_reward_gold(issuer, offer.offered_gold, 100)
+		_:
+			offer.creates_promise = false
+
+func _reserved_reward_gold(issuer: ActorState, immediate_gold: int, desired: int) -> int:
+	return mini(desired, maxi(0, issuer.gold - immediate_gold))
 
 func _pay_player(issuer: ActorState, player: ActorState, amount: int) -> void:
 	if amount <= 0:
@@ -632,6 +803,25 @@ func _first_tradeable_player_card(player: ActorState, issuer: ActorState) -> Car
 		if not instance.is_available() or not instance.transferable_snapshot:
 			continue
 		if instance.sealed and not issuer.has_inventory_space_for_sealed():
+			continue
+		return instance
+	return null
+
+func _first_promisable_player_card(
+	player: ActorState,
+	issuer: ActorState,
+	offer_type: int
+) -> CardInstance:
+	if player == null or issuer == null:
+		return null
+	if offer_type in [GameConstants.OfferType.BUY_CARD, GameConstants.OfferType.TRANSFER_CARD]:
+		return _first_tradeable_player_card(player, issuer)
+	if offer_type not in [GameConstants.OfferType.KEEP_SEALED, GameConstants.OfferType.HOLD_CARD]:
+		return null
+	for instance: CardInstance in player.inventory:
+		if not instance.is_available():
+			continue
+		if offer_type == GameConstants.OfferType.KEEP_SEALED and not instance.sealed:
 			continue
 		return instance
 	return null
