@@ -279,9 +279,9 @@ func betrayal_score(
 	match actor.character_id:
 		GameConstants.CHARACTER_MARA:
 			personality_loyalty = 115
-		GameConstants.CHARACTER_VOLT:
+		GameConstants.CHARACTER_ROWAN:
 			personality_loyalty = 35
-		GameConstants.CHARACTER_SERA:
+		GameConstants.CHARACTER_SARAH:
 			personality_loyalty = 70
 	var reputation_modifier: int = reputation_for(actor_id) * 30
 	var relationship_modifier: int = state.relationship_score * 20
@@ -946,7 +946,7 @@ func _set_emotion_after_fulfillment(actor_id: StringName) -> void:
 		return
 	_set_emotion(
 		actor_id,
-		GameConstants.Emotion.INTERESTED if actor.character_id == GameConstants.CHARACTER_VOLT else GameConstants.Emotion.CALM
+		GameConstants.Emotion.INTERESTED if actor.character_id == GameConstants.CHARACTER_ROWAN else GameConstants.Emotion.CALM
 	)
 
 func _set_emotion_after_player_betrayal(actor_id: StringName) -> void:
@@ -965,7 +965,7 @@ func _set_emotion_after_self_betrayal(actor_id: StringName) -> void:
 	var emotion: int = GameConstants.Emotion.SMUG
 	if actor.character_id == GameConstants.CHARACTER_MARA:
 		emotion = GameConstants.Emotion.NERVOUS
-	elif actor.character_id == GameConstants.CHARACTER_SERA:
+	elif actor.character_id == GameConstants.CHARACTER_SARAH:
 		emotion = GameConstants.Emotion.CALM if _rng.randf() < 0.5 else GameConstants.Emotion.SMUG
 	_set_emotion(actor_id, emotion)
 

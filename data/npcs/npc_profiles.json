@@ -17,8 +17,8 @@
       "dialogue_resource_id": "mara"
     },
     {
-      "id": "volt",
-      "display_name": "볼트",
+      "id": "rowan",
+      "display_name": "로완",
       "base_archetype": "gambler",
       "preferred_tags": ["high_risk", "high_reward", "gamble", "immediate"],
       "avoided_tags": ["safe", "slow"],
@@ -27,14 +27,14 @@
       "lie_frequency": 0.3,
       "fear_threshold": 0,
       "counter_offer_tolerance": 150,
-      "secret_goal_pool": ["volt_bid_total", "volt_open_risk", "volt_win_auctions"],
+      "secret_goal_pool": ["rowan_bid_total", "rowan_open_risk", "rowan_win_auctions"],
       "emergency_ability_id": "life_collateral",
-      "tell_pattern_ids": ["volt_lean", "volt_tap", "volt_smile"],
-      "dialogue_resource_id": "volt"
+      "tell_pattern_ids": ["rowan_lean", "rowan_tap", "rowan_smile"],
+      "dialogue_resource_id": "rowan"
     },
     {
-      "id": "sera",
-      "display_name": "세라",
+      "id": "sarah",
+      "display_name": "사라",
       "base_archetype": "creditor",
       "preferred_tags": ["information", "contract", "economy", "unique"],
       "avoided_tags": ["uncertain", "chaos"],
@@ -43,32 +43,32 @@
       "lie_frequency": 0.12,
       "fear_threshold": 1,
       "counter_offer_tolerance": 125,
-      "secret_goal_pool": ["sera_trade_twice", "sera_gain_clues", "sera_reveal_cards"],
+      "secret_goal_pool": ["sarah_trade_twice", "sarah_gain_clues", "sarah_reveal_cards"],
       "emergency_ability_id": "information_theft",
-      "tell_pattern_ids": ["sera_avoid_gaze", "sera_exact_price", "sera_watch_others"],
-      "dialogue_resource_id": "sera"
+      "tell_pattern_ids": ["sarah_avoid_gaze", "sarah_exact_price", "sarah_watch_others"],
+      "dialogue_resource_id": "sarah"
     }
   ],
   "secret_goals": [
     {"id": "mara_no_sealed", "character_id": "mara", "description": "10라운드 종료 시 봉인 카드 0장", "metric": "sealed_zero", "target": 1},
     {"id": "mara_keep_hp", "character_id": "mara", "description": "체력 2 이상 유지", "metric": "minimum_hp", "target": 2},
     {"id": "mara_avoid_disaster", "character_id": "mara", "description": "재앙 카드를 개봉하지 않기", "metric": "avoid_disaster", "target": 1},
-    {"id": "volt_bid_total", "character_id": "volt", "description": "누적 입찰액 2,500 G 이상", "metric": "cumulative_bid", "target": 2500},
-    {"id": "volt_open_risk", "character_id": "volt", "description": "고위험 카드 2장 이상 개봉", "metric": "high_risk_opened", "target": 2},
-    {"id": "volt_win_auctions", "character_id": "volt", "description": "경매 낙찰 4회 이상", "metric": "auctions_won", "target": 4},
-    {"id": "sera_trade_twice", "character_id": "sera", "description": "다른 참가자와 거래 2회 이상", "metric": "trades", "target": 2},
-    {"id": "sera_gain_clues", "character_id": "sera", "description": "정보 단서 3개 이상 획득", "metric": "clues", "target": 3},
-    {"id": "sera_reveal_cards", "character_id": "sera", "description": "봉인 카드 2장을 완전 공개", "metric": "fully_revealed", "target": 2}
+    {"id": "rowan_bid_total", "character_id": "rowan", "description": "누적 입찰액 2,500 G 이상", "metric": "cumulative_bid", "target": 2500},
+    {"id": "rowan_open_risk", "character_id": "rowan", "description": "고위험 카드 2장 이상 개봉", "metric": "high_risk_opened", "target": 2},
+    {"id": "rowan_win_auctions", "character_id": "rowan", "description": "경매 낙찰 4회 이상", "metric": "auctions_won", "target": 4},
+    {"id": "sarah_trade_twice", "character_id": "sarah", "description": "다른 참가자와 거래 2회 이상", "metric": "trades", "target": 2},
+    {"id": "sarah_gain_clues", "character_id": "sarah", "description": "정보 단서 3개 이상 획득", "metric": "clues", "target": 3},
+    {"id": "sarah_reveal_cards", "character_id": "sarah", "description": "봉인 카드 2장을 완전 공개", "metric": "fully_revealed", "target": 2}
   ],
   "tells": [
     {"id": "mara_tremble", "character_id": "mara", "trigger_type": "fear", "text": "손끝이 가늘게 떨린다.", "reliability": 0.78, "weight": 5},
     {"id": "mara_look_away", "character_id": "mara", "trigger_type": "negotiation", "text": "카드를 보지 않으려 한다.", "reliability": 0.62, "weight": 4},
     {"id": "mara_quiet", "character_id": "mara", "trigger_type": "interest", "text": "목소리가 평소보다 작아진다.", "reliability": 0.55, "weight": 3},
-    {"id": "volt_lean", "character_id": "volt", "trigger_type": "interest", "text": "몸을 테이블 앞으로 기울인다.", "reliability": 0.72, "weight": 5},
-    {"id": "volt_tap", "character_id": "volt", "trigger_type": "negotiation", "text": "손가락으로 일정한 박자를 두드린다.", "reliability": 0.58, "weight": 4},
-    {"id": "volt_smile", "character_id": "volt", "trigger_type": "interest", "text": "입찰표를 만지며 짧게 웃는다.", "reliability": 0.66, "weight": 3},
-    {"id": "sera_avoid_gaze", "character_id": "sera", "trigger_type": "negotiation", "text": "대답하기 전 잠시 시선을 피한다.", "reliability": 0.52, "weight": 4},
-    {"id": "sera_exact_price", "character_id": "sera", "trigger_type": "interest", "text": "가격만큼은 망설임 없이 정확히 말한다.", "reliability": 0.84, "weight": 5},
-    {"id": "sera_watch_others", "character_id": "sera", "trigger_type": "negotiation", "text": "다른 참가자의 표정을 먼저 살핀다.", "reliability": 0.61, "weight": 3}
+    {"id": "rowan_lean", "character_id": "rowan", "trigger_type": "interest", "text": "몸을 테이블 앞으로 기울인다.", "reliability": 0.72, "weight": 5},
+    {"id": "rowan_tap", "character_id": "rowan", "trigger_type": "negotiation", "text": "손가락으로 일정한 박자를 두드린다.", "reliability": 0.58, "weight": 4},
+    {"id": "rowan_smile", "character_id": "rowan", "trigger_type": "interest", "text": "입찰표를 만지며 짧게 웃는다.", "reliability": 0.66, "weight": 3},
+    {"id": "sarah_avoid_gaze", "character_id": "sarah", "trigger_type": "negotiation", "text": "대답하기 전 잠시 시선을 피한다.", "reliability": 0.52, "weight": 4},
+    {"id": "sarah_exact_price", "character_id": "sarah", "trigger_type": "interest", "text": "가격만큼은 망설임 없이 정확히 말한다.", "reliability": 0.84, "weight": 5},
+    {"id": "sarah_watch_others", "character_id": "sarah", "trigger_type": "negotiation", "text": "다른 참가자의 표정을 먼저 살핀다.", "reliability": 0.61, "weight": 3}
   ]
 }

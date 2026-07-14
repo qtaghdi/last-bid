@@ -67,8 +67,8 @@ func start_new_run(seed_value: int = GameConstants.DEFAULT_SEED) -> void:
 	actors = [
 		ActorState.create(GameConstants.PLAYER_ID, "플레이어", GameConstants.ActorType.PLAYER),
 		ActorState.create(&"npc_1", "마라", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_COLLECTOR, GameConstants.CHARACTER_MARA),
-		ActorState.create(&"npc_2", "세라", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_CREDITOR, GameConstants.CHARACTER_SERA),
-		ActorState.create(&"npc_3", "볼트", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_GAMBLER, GameConstants.CHARACTER_VOLT),
+		ActorState.create(&"npc_2", "사라", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_CREDITOR, GameConstants.CHARACTER_SARAH),
+		ActorState.create(&"npc_3", "로완", GameConstants.ActorType.NPC, GameConstants.ARCHETYPE_GAMBLER, GameConstants.CHARACTER_ROWAN),
 	]
 	negotiation.initialize_characters(actors)
 	promise_manager.initialize(actors)

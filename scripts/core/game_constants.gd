@@ -94,8 +94,8 @@ const ARCHETYPE_CREDITOR: StringName = &"creditor"
 const ARCHETYPE_GAMBLER: StringName = &"gambler"
 
 const CHARACTER_MARA: StringName = &"mara"
-const CHARACTER_VOLT: StringName = &"volt"
-const CHARACTER_SERA: StringName = &"sera"
+const CHARACTER_ROWAN: StringName = &"rowan"
+const CHARACTER_SARAH: StringName = &"sarah"
 
 const PLAYER_ID: StringName = &"player"
 const TOTAL_ROUNDS: int = 10

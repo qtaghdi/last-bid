@@ -52,8 +52,8 @@ func _normalize_character(value: StringName) -> StringName:
 		GameConstants.ARCHETYPE_COLLECTOR:
 			return GameConstants.CHARACTER_MARA
 		GameConstants.ARCHETYPE_GAMBLER:
-			return GameConstants.CHARACTER_VOLT
+			return GameConstants.CHARACTER_ROWAN
 		GameConstants.ARCHETYPE_CREDITOR:
-			return GameConstants.CHARACTER_SERA
+			return GameConstants.CHARACTER_SARAH
 		_:
 			return value

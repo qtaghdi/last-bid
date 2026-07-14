@@ -126,7 +126,7 @@ func build_offer(issuer_id: StringName, forced_type: int = -1) -> NegotiationOff
 		]
 		and target_instance == null
 	):
-		offer_type = GameConstants.OfferType.MUTUAL_PASS if issuer.character_id == GameConstants.CHARACTER_VOLT else GameConstants.OfferType.SKIP_AUCTION
+		offer_type = GameConstants.OfferType.MUTUAL_PASS if issuer.character_id == GameConstants.CHARACTER_ROWAN else GameConstants.OfferType.SKIP_AUCTION
 	_offer_serial += 1
 	var offer: NegotiationOffer = NegotiationOffer.new()
 	offer.offer_id = StringName("offer_%02d_%s_%02d" % [_run_state.current_round, issuer.actor_id, _offer_serial])
@@ -475,9 +475,9 @@ func _offer_score(actor: ActorState) -> Dictionary:
 		GameConstants.CHARACTER_MARA:
 			personal_need = 70 + (4 - mini(4, known_count)) * 15 + (90 if actor.hp <= 1 else 0)
 			risk_avoidance = maxi(0, risk - reward) / 3
-		GameConstants.CHARACTER_VOLT:
+		GameConstants.CHARACTER_ROWAN:
 			personal_need = 60 + (reward + risk) / 12 + (35 if actor.hp >= 2 else -20)
-		GameConstants.CHARACTER_SERA:
+		GameConstants.CHARACTER_SARAH:
 			personal_need = 55 + known_count * 22 + (45 if not _shareable_clue_id(actor.actor_id).is_empty() else 0)
 	var card_interest: int = maxi(0, reward - risk) / 8
 	var goal_bonus: int = _secret_goal_bonus(actor, state, knowledge)
@@ -501,15 +501,15 @@ func _choose_offer_type(actor: ActorState) -> int:
 		match state.secret_goal_id:
 			&"mara_no_sealed", &"mara_avoid_disaster":
 				return GameConstants.OfferType.KEEP_SEALED
-			&"volt_bid_total", &"volt_win_auctions":
+			&"rowan_bid_total", &"rowan_win_auctions":
 				return GameConstants.OfferType.SKIP_AUCTION
-			&"volt_open_risk":
+			&"rowan_open_risk":
 				if _first_tradeable_player_card(_actor_by_id(GameConstants.PLAYER_ID), actor) != null:
 					return GameConstants.OfferType.BUY_CARD
-			&"sera_trade_twice":
+			&"sarah_trade_twice":
 				if _first_tradeable_player_card(_actor_by_id(GameConstants.PLAYER_ID), actor) != null:
 					return GameConstants.OfferType.BUY_CARD
-			&"sera_gain_clues":
+			&"sarah_gain_clues":
 				if not _shareable_clue_id(actor.actor_id).is_empty():
 					return GameConstants.OfferType.SHARE_INFORMATION
 	match actor.character_id:
@@ -519,14 +519,14 @@ func _choose_offer_type(actor: ActorState) -> int:
 				GameConstants.OfferType.HOLD_CARD,
 				GameConstants.OfferType.TRANSFER_CARD,
 			]
-		GameConstants.CHARACTER_VOLT:
+		GameConstants.CHARACTER_ROWAN:
 			choices = [
 				GameConstants.OfferType.SKIP_AUCTION,
 				GameConstants.OfferType.MUTUAL_PASS,
 				GameConstants.OfferType.BUY_CARD,
 				GameConstants.OfferType.TRANSFER_CARD,
 			]
-		GameConstants.CHARACTER_SERA:
+		GameConstants.CHARACTER_SARAH:
 			choices = [
 				GameConstants.OfferType.SHARE_INFORMATION,
 				GameConstants.OfferType.HOLD_CARD,
@@ -554,11 +554,11 @@ func _secret_goal_bonus(
 			bonus += estimated_risk / 8
 		&"mara_keep_hp":
 			bonus += 50 if actor.hp <= 2 else 10
-		&"volt_bid_total", &"volt_win_auctions":
+		&"rowan_bid_total", &"rowan_win_auctions":
 			bonus += 35 if actor.gold >= 300 else 0
-		&"volt_open_risk":
+		&"rowan_open_risk":
 			bonus += estimated_risk / 6
-		&"sera_trade_twice", &"sera_gain_clues", &"sera_reveal_cards":
+		&"sarah_trade_twice", &"sarah_gain_clues", &"sarah_reveal_cards":
 			bonus += 25
 	return bonus
 
@@ -759,7 +759,7 @@ func _refresh_emotion(actor: ActorState) -> void:
 	var emotion: int = GameConstants.Emotion.CALM
 	if actor.character_id == GameConstants.CHARACTER_MARA and actor.hp <= 1:
 		emotion = GameConstants.Emotion.AFRAID
-	elif actor.character_id == GameConstants.CHARACTER_VOLT and reward + risk >= 500:
+	elif actor.character_id == GameConstants.CHARACTER_ROWAN and reward + risk >= 500:
 		emotion = GameConstants.Emotion.SMUG if actor.hp >= 2 else GameConstants.Emotion.INTERESTED
 	elif state != null and state.relationship_score <= -2:
 		emotion = GameConstants.Emotion.ANGRY
