@@ -59,6 +59,7 @@ func share_known_clue(
 		target.confidence_by_clue[clue_id] = source.confidence_by_clue.get(clue_id, 0.75)
 		target.reveal_level = maxi(target.reveal_level, GameConstants.RevealLevel.BASIC_CLUES)
 		_events.knowledge_changed.emit(target.actor_id, target.card_instance_id)
+		_events.clue_shared.emit(source.actor_id, target.actor_id, target.card_instance_id, clue_id)
 		return true
 	return false
 

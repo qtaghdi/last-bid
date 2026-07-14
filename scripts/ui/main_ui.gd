@@ -2,6 +2,7 @@ extends Control
 
 @onready var controller: GameFlowController = $GameFlowController
 @onready var top_hud: TopHud = %TopHud
+@onready var active_promise_panel: ActivePromisePanel = %ActivePromisePanel
 @onready var participant_panel: ParticipantPanel = %ParticipantPanel
 @onready var card_info_panel: CardInfoPanel = %CardInfoPanel
 @onready var reaction_panel: ReactionPanel = %ReactionPanel
@@ -41,6 +42,7 @@ func _ready() -> void:
 	negotiation_panel.accept_requested.connect(_on_offer_accept_requested)
 	negotiation_panel.reject_requested.connect(_on_offer_reject_requested)
 	negotiation_panel.counter_requested.connect(_on_offer_counter_requested)
+	active_promise_panel.fulfill_requested.connect(_on_promise_fulfill_requested)
 	_connect_events()
 	top_hud.set_seed(GameConstants.DEFAULT_SEED)
 	_start_new_run(GameConstants.DEFAULT_SEED)
@@ -58,6 +60,10 @@ func _connect_events() -> void:
 	controller.events.card_opened.connect(_on_post_card_opened)
 	controller.events.card_transferred.connect(_on_card_transferred)
 	controller.events.card_burned.connect(_on_card_burned)
+	controller.events.promise_fulfilled.connect(_on_promise_fulfilled)
+	controller.events.promise_broken.connect(_on_promise_broken)
+	controller.events.promise_cancelled.connect(_on_promise_cancelled)
+	controller.events.betrayal_committed.connect(_on_betrayal_committed)
 
 func _start_new_run(seed_value: int) -> void:
 	_debug_lines.clear()
@@ -117,6 +123,10 @@ func _on_offer_counter_requested(amount: int) -> void:
 	controller.request_counter_offer(amount)
 	_refresh()
 
+func _on_promise_fulfill_requested(promise_id: StringName) -> void:
+	controller.request_fulfill_promise(promise_id)
+	_refresh()
+
 func set_debug_mode(enabled: bool) -> void:
 	_debug_mode = enabled
 	if not is_node_ready():
@@ -138,6 +148,7 @@ func _refresh() -> void:
 		return
 	var run: RunState = controller.run_state
 	top_hud.render(run, _debug_mode)
+	active_promise_panel.render(controller)
 	participant_panel.render(controller, _debug_mode)
 	card_info_panel.render(
 		run.current_card,
@@ -173,6 +184,7 @@ func _update_phase_visibility(phase: int) -> void:
 	reaction_panel.visible = is_pre_info or is_auction
 	participant_panel.visible = not is_result
 	action_bar.visible = not is_result
+	active_promise_panel.visible = not is_result and not controller.run_state.active_promises.is_empty()
 
 func _update_action_bar(phase: int) -> void:
 	var run: RunState = controller.run_state
@@ -344,6 +356,44 @@ func _on_card_burned(_instance_id: StringName, former_owner_id: StringName) -> v
 	var owner: ActorState = controller.actor_by_id(former_owner_id)
 	_resolution_lines.append(
 		"카드 소각 · %s" % [owner.display_name if owner != null else former_owner_id]
+	)
+
+func _on_promise_fulfilled(
+	_promise_id: StringName,
+	_fulfilled_by: StringName,
+	reason: String
+) -> void:
+	_resolution_lines.append(
+		"[color=#%s][b]약속 이행[/b][/color] · %s"
+		% [UiPalette.bbcode(UiPalette.GOLD_BRIGHT), reason]
+	)
+
+func _on_promise_broken(
+	_promise_id: StringName,
+	_broken_by: StringName,
+	reason: String
+) -> void:
+	_resolution_lines.append(
+		"[color=#%s][b]약속 위반[/b][/color] · %s"
+		% [UiPalette.bbcode(UiPalette.DANGER), reason]
+	)
+
+func _on_promise_cancelled(_promise_id: StringName, reason: String) -> void:
+	_resolution_lines.append("약속 취소 · %s" % reason)
+
+func _on_betrayal_committed(
+	actor_id: StringName,
+	_promise_id: StringName,
+	reason: String
+) -> void:
+	var actor: ActorState = controller.actor_by_id(actor_id)
+	_resolution_lines.append(
+		"[color=#%s][b]%s의 배신[/b][/color] · %s"
+		% [
+			UiPalette.bbcode(UiPalette.DANGER),
+			actor.display_name if actor != null else "NPC",
+			reason,
+		]
 	)
 
 func _is_resolution_phase() -> bool:

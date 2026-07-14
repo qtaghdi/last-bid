@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/main_ui.gd" id="1_ui"]
 [ext_resource type="Script" path="res://scripts/core/game_flow_controller.gd" id="2_controller"]
@@ -14,6 +14,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/result_panel.tscn" id="12_result"]
 [ext_resource type="PackedScene" path="res://scenes/ui/debug_drawer.tscn" id="13_debug"]
 [ext_resource type="PackedScene" path="res://scenes/ui/negotiation_panel.tscn" id="14_negotiation"]
+[ext_resource type="PackedScene" path="res://scenes/ui/active_promise_panel.tscn" id="15_promises"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -85,6 +86,11 @@ custom_minimum_size = Vector2(430, 0)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_constants/separation = 8
+
+[node name="ActivePromisePanel" parent="PageMargin/Page/Body/Center" instance=ExtResource("15_promises")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
 
 [node name="CardInfoPanel" parent="PageMargin/Page/Body/Center" instance=ExtResource("7_card")]
 unique_name_in_owner = true

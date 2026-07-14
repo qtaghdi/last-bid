@@ -39,9 +39,15 @@ func _run_all() -> void:
 	_test_character_emotion_tells_and_visibility()
 	_test_emergency_abilities()
 	_test_dialogue_data_and_rng_isolation()
+	_test_promise_creation_and_six_types()
+	_test_promise_fulfillment_and_violation()
+	_test_promise_rewards_reputation_and_memory()
+	_test_npc_betrayal_determinism_and_personality()
+	_test_promise_death_cancellation_and_ui()
 	_test_player_death_is_defeat()
 	_test_round_ten_survival_is_victory()
 	_test_twenty_simulations_finish()
+	_test_twenty_promise_simulations_finish()
 	if _failures == 0:
 		print("PASS: %d assertions" % _assertions)
 		quit(0)
@@ -965,11 +971,15 @@ func _test_offer_responses_and_relationships() -> void:
 	_assert_true(accepted.request_accept_offer(), "입찰 포기 제안 수락")
 	_assert_equal(player.gold, player_gold + skip_offer.offered_gold, "수락 시 플레이어 보상 지급")
 	_assert_equal(issuer.gold, issuer_gold - skip_offer.offered_gold, "수락 시 NPC 골드 차감")
-	_assert_true(accepted.run_state.player_forced_pass, "입찰 포기 조건이 현재 경매에 적용")
+	_assert_equal(accepted.run_state.active_promises.size(), 1, "입찰 포기 수락 시 활성 약속 생성")
+	var accepted_promise: PromiseState = accepted.run_state.active_promises[0]
+	_assert_equal(accepted_promise.promise_type, GameConstants.PROMISE_SKIP_AUCTION, "입찰 포기 조건이 PromiseState에 저장")
+	_assert_true(not accepted.run_state.player_forced_pass, "약속 수락 후 플레이어가 이행 또는 위반을 직접 선택")
 	_assert_equal(accepted.npc_run_state_for(&"npc_3").relationship_score, 1, "제안 수락 시 관계 증가")
 	_assert_true(not accepted.request_accept_offer(), "해결된 제안 중복 처리 방지")
 	accepted.request_advance()
-	_assert_true(accepted.actor_by_id(GameConstants.PLAYER_ID).has_passed, "수락 후 경매 시작 시 플레이어 자동 패스")
+	_assert_true(accepted.request_player_pass(), "경매에서 패스해 약속 이행")
+	_assert_equal(accepted_promise.status, GameConstants.PROMISE_FULFILLED, "입찰 포기 약속 이행 상태 기록")
 	accepted.free()
 
 	var rejected: GameFlowController = _new_controller(12021)
@@ -1021,10 +1031,16 @@ func _test_offer_type_effects() -> void:
 	buying.free()
 
 	var sealed: GameFlowController = _new_controller(12031)
+	sealed.effects.acquire_card(
+		CardCatalog.by_id(&"broken_chalice"),
+		sealed.actor_by_id(GameConstants.PLAYER_ID),
+		sealed.actors
+	)
 	var sealed_offer: NegotiationOffer = _install_offer(sealed, &"npc_1", GameConstants.OfferType.KEEP_SEALED)
 	_assert_true(sealed.request_accept_offer(), "개봉 금지 제안 수락")
-	_assert_true(sealed.run_state.temporary_negotiation_warning.contains("봉인"), "개봉 금지 임시 경고 유지")
+	_assert_true(sealed.run_state.temporary_negotiation_warning.contains("활성 약속"), "개봉 금지 활성 약속 안내 유지")
 	_assert_equal(sealed_offer.requested_action, GameConstants.RequestedAction.DO_NOT_OPEN, "개봉 금지 요청 행동 매핑")
+	_assert_equal(sealed.run_state.active_promises[0].promise_type, GameConstants.PROMISE_KEEP_CARD_SEALED, "개봉 금지 약속 타입 연결")
 	sealed.free()
 
 	var shared: GameFlowController = _new_controller(12032)
@@ -1037,15 +1053,24 @@ func _test_offer_type_effects() -> void:
 	var share_offer: NegotiationOffer = _install_offer(shared, &"npc_2", GameConstants.OfferType.SHARE_INFORMATION)
 	_assert_equal(share_offer.offer_type, GameConstants.OfferType.SHARE_INFORMATION, "정보 교환 제안 생성")
 	_assert_true(shared.request_accept_offer(), "정보 교환 제안 수락")
-	_assert_true(target.knows(&"test_clue"), "정보 교환으로 플레이어에게 단서 전달")
-	_assert_true(shared.run_state.player_forced_pass, "정보 교환의 경매 패스 조건 적용")
+	_assert_true(not target.knows(&"test_clue"), "정보 제공 약속은 수락 즉시 단서를 공개하지 않음")
+	_assert_equal(shared.run_state.active_promises[0].promise_type, GameConstants.PROMISE_SHARE_INFORMATION, "정보 제공 약속 생성")
+	_assert_true(shared.information_service.share_known_clue(source, target, &"test_clue"), "NPC가 약속한 단서 제공")
+	_assert_true(target.knows(&"test_clue"), "정보 제공 후 플레이어 지식 갱신")
+	_assert_equal(shared.run_state.resolved_promises[0].status, GameConstants.PROMISE_FULFILLED, "단서 제공으로 약속 이행")
 	shared.free()
 
 	var held: GameFlowController = _new_controller(12033)
+	held.effects.acquire_card(
+		CardCatalog.by_id(&"broken_chalice"),
+		held.actor_by_id(GameConstants.PLAYER_ID),
+		held.actors
+	)
 	var hold_offer: NegotiationOffer = _install_offer(held, &"npc_1", GameConstants.OfferType.HOLD_CARD)
 	_assert_true(held.request_accept_offer(), "카드 보관 요청 수락")
-	_assert_true(held.run_state.temporary_negotiation_warning.contains("보관"), "카드 보관 임시 상태 표시")
+	_assert_true(held.run_state.temporary_negotiation_warning.contains("활성 약속"), "카드 보관 활성 약속 표시")
 	_assert_equal(hold_offer.requested_action, GameConstants.RequestedAction.KEEP_CARD, "보관 요청 행동 매핑")
+	_assert_equal(held.run_state.active_promises[0].promise_type, GameConstants.PROMISE_HOLD_CARD, "카드 보관 약속 타입 연결")
 	held.free()
 
 func _test_character_emotion_tells_and_visibility() -> void:
@@ -1131,6 +1156,20 @@ func _test_dialogue_data_and_rng_isolation() -> void:
 	for character_id: StringName in [GameConstants.CHARACTER_MARA, GameConstants.CHARACTER_VOLT, GameConstants.CHARACTER_SERA]:
 		_assert_true(first.line_count(character_id) >= 20, "%s 대사 데이터 20줄 이상" % character_id)
 		_assert_true(first.categories(character_id).has("negotiation_start"), "%s 협상 대사 카테고리 분리" % character_id)
+		for category: String in [
+			"promise_propose",
+			"promise_accepted",
+			"promise_rejected",
+			"promise_fulfilled",
+			"promise_broken_by_player",
+			"promise_broken_by_self",
+			"betrayal_warning",
+			"betrayal_reaction",
+			"trust_high",
+			"trust_low",
+			"memory_reference",
+		]:
+			_assert_true(first.categories(character_id).has(category), "%s %s 대사 카테고리 존재" % [character_id, category])
 	var first_lines: PackedStringArray = []
 	var second_lines: PackedStringArray = []
 	for _index: int in range(6):
@@ -1151,6 +1190,392 @@ func _test_dialogue_data_and_rng_isolation() -> void:
 	for _index: int in range(10):
 		dialogue.select_line(GameConstants.CHARACTER_VOLT, &"interest")
 	_assert_equal(gameplay_first.randi_range(1, 100000), gameplay_second.randi_range(1, 100000), "dialogue RNG가 gameplay RNG에 영향 없음")
+
+func _test_promise_creation_and_six_types() -> void:
+	var controller: GameFlowController = _new_controller(13001)
+	var player: ActorState = controller.actor_by_id(GameConstants.PLAYER_ID)
+	var owned: CardInstance = controller.effects.acquire_card(
+		CardCatalog.by_id(&"broken_chalice"),
+		player,
+		controller.actors
+	)
+	for npc_id: StringName in [&"npc_1", &"npc_2", &"npc_3"]:
+		controller.actor_by_id(npc_id).gold = 5000
+	_prepare_share_knowledge(controller, &"npc_2", GameConstants.PLAYER_ID)
+	var specs: Array[Dictionary] = [
+		{"issuer": &"npc_3", "offer": GameConstants.OfferType.SKIP_AUCTION, "promise": GameConstants.PROMISE_SKIP_AUCTION},
+		{"issuer": &"npc_1", "offer": GameConstants.OfferType.KEEP_SEALED, "promise": GameConstants.PROMISE_KEEP_CARD_SEALED},
+		{"issuer": &"npc_1", "offer": GameConstants.OfferType.HOLD_CARD, "promise": GameConstants.PROMISE_HOLD_CARD},
+		{"issuer": &"npc_3", "offer": GameConstants.OfferType.TRANSFER_CARD, "promise": GameConstants.PROMISE_TRANSFER_CARD},
+		{"issuer": &"npc_2", "offer": GameConstants.OfferType.SHARE_INFORMATION, "promise": GameConstants.PROMISE_SHARE_INFORMATION},
+		{"issuer": &"npc_3", "offer": GameConstants.OfferType.MUTUAL_PASS, "promise": GameConstants.PROMISE_MUTUAL_PASS},
+	]
+	var promise_ids: Dictionary = {}
+	for spec: Dictionary in specs:
+		var offer: NegotiationOffer = _install_offer(
+			controller,
+			spec["issuer"],
+			int(spec["offer"])
+		)
+		_assert_true(offer.creates_promise, "%s 제안이 약속 생성으로 표시" % spec["promise"])
+		_assert_equal(offer.promise_type, spec["promise"], "%s 약속 타입 매핑" % spec["promise"])
+		_assert_true(controller.request_accept_offer(), "%s 약속 제안 수락" % spec["promise"])
+		var promise: PromiseState = controller.run_state.active_promises[-1]
+		_assert_true(not promise_ids.has(promise.promise_id), "promise_id 런 내 고유")
+		promise_ids[promise.promise_id] = true
+		_assert_equal(promise.target_round, offer.promise_target_round, "약속 기한 정확")
+		if promise.promise_type in [
+			GameConstants.PROMISE_KEEP_CARD_SEALED,
+			GameConstants.PROMISE_HOLD_CARD,
+			GameConstants.PROMISE_TRANSFER_CARD,
+		]:
+			_assert_equal(promise.target_card_instance_id, owned.instance_id, "카드 약속이 definition이 아닌 instance_id 추적")
+	_assert_equal(promise_ids.size(), 6, "지원 약속 6종 모두 생성")
+	controller.free()
+
+	var rejected: GameFlowController = _new_controller(13002)
+	var rejected_offer: NegotiationOffer = _install_offer(rejected, &"npc_3", GameConstants.OfferType.SKIP_AUCTION)
+	_assert_true(rejected_offer.creates_promise, "거절 대상 약속 제안 생성")
+	_assert_true(rejected.request_reject_offer(), "약속 제안 거절")
+	_assert_equal(rejected.run_state.active_promises.size(), 0, "거절한 제안은 PromiseState를 생성하지 않음")
+	rejected.free()
+
+func _test_promise_fulfillment_and_violation() -> void:
+	var skip_fulfilled: GameFlowController = _new_controller(13101)
+	var skip_offer: NegotiationOffer = _install_offer(skip_fulfilled, &"npc_3", GameConstants.OfferType.SKIP_AUCTION)
+	_assert_true(skip_fulfilled.request_accept_offer(), "SKIP_AUCTION 약속 수락")
+	var skip_promise: PromiseState = skip_fulfilled.run_state.active_promises[0]
+	skip_fulfilled.events.actor_passed.emit(GameConstants.PLAYER_ID)
+	_assert_equal(skip_promise.status, GameConstants.PROMISE_FULFILLED, "패스로 SKIP_AUCTION 이행")
+	_assert_equal(skip_promise.fulfilled_by, GameConstants.PLAYER_ID, "SKIP_AUCTION 이행 actor 기록")
+	_assert_true(skip_offer.promise_target_round == skip_promise.target_round, "SKIP_AUCTION 기한 유지")
+	skip_fulfilled.free()
+
+	var skip_broken: GameFlowController = _new_controller(13102)
+	_install_offer(skip_broken, &"npc_3", GameConstants.OfferType.SKIP_AUCTION)
+	skip_broken.request_accept_offer()
+	var broken_skip: PromiseState = skip_broken.run_state.active_promises[0]
+	skip_broken.events.bid_placed.emit(GameConstants.PLAYER_ID, 200)
+	_assert_equal(broken_skip.status, GameConstants.PROMISE_BROKEN, "입찰로 SKIP_AUCTION 위반")
+	_assert_equal(broken_skip.broken_by, GameConstants.PLAYER_ID, "입찰 위반 actor 기록")
+	skip_broken.free()
+
+	var sealed_fulfilled: GameFlowController = _new_controller(13103)
+	var sealed_instance: CardInstance = _add_player_promise_card(sealed_fulfilled)
+	_install_offer(sealed_fulfilled, &"npc_1", GameConstants.OfferType.KEEP_SEALED)
+	sealed_fulfilled.request_accept_offer()
+	var sealed_promise: PromiseState = sealed_fulfilled.run_state.active_promises[0]
+	sealed_fulfilled.run_state.current_round = sealed_promise.target_round
+	sealed_fulfilled.events.round_finished.emit(sealed_promise.target_round)
+	_assert_equal(sealed_promise.status, GameConstants.PROMISE_FULFILLED, "기한까지 유지해 KEEP_CARD_SEALED 이행")
+	_assert_equal(sealed_promise.target_card_instance_id, sealed_instance.instance_id, "봉인 약속 대상 instance 유지")
+	sealed_fulfilled.free()
+
+	var sealed_broken: GameFlowController = _new_controller(13104)
+	var opened_instance: CardInstance = _add_player_promise_card(sealed_broken)
+	_install_offer(sealed_broken, &"npc_1", GameConstants.OfferType.KEEP_SEALED)
+	sealed_broken.request_accept_offer()
+	var opened_promise: PromiseState = sealed_broken.run_state.active_promises[0]
+	sealed_broken.events.seal_opened.emit(opened_instance.instance_id, 1, "테스트 공개")
+	_assert_equal(opened_promise.status, GameConstants.PROMISE_BROKEN, "봉인 해제로 KEEP_CARD_SEALED 위반")
+	sealed_broken.free()
+
+	var hold_fulfilled: GameFlowController = _new_controller(13105)
+	_add_player_promise_card(hold_fulfilled)
+	_install_offer(hold_fulfilled, &"npc_1", GameConstants.OfferType.HOLD_CARD)
+	hold_fulfilled.request_accept_offer()
+	var hold_promise: PromiseState = hold_fulfilled.run_state.active_promises[0]
+	hold_fulfilled.run_state.current_round = hold_promise.target_round
+	hold_fulfilled.events.round_finished.emit(hold_promise.target_round)
+	_assert_equal(hold_promise.status, GameConstants.PROMISE_FULFILLED, "소유권 유지로 HOLD_CARD 이행")
+	hold_fulfilled.free()
+
+	var hold_broken: GameFlowController = _new_controller(13106)
+	var held_instance: CardInstance = _add_player_promise_card(hold_broken)
+	var hold_player: ActorState = hold_broken.actor_by_id(GameConstants.PLAYER_ID)
+	var hold_target: ActorState = hold_broken.actor_by_id(&"npc_1")
+	_install_offer(hold_broken, &"npc_1", GameConstants.OfferType.HOLD_CARD)
+	hold_broken.request_accept_offer()
+	var moved_hold_promise: PromiseState = hold_broken.run_state.active_promises[0]
+	hold_broken.effects.transfer_instance(held_instance, hold_player, hold_target, hold_broken.actors)
+	_assert_equal(moved_hold_promise.status, GameConstants.PROMISE_BROKEN, "판매 또는 이전으로 HOLD_CARD 위반")
+	hold_broken.free()
+
+	var burned_hold: GameFlowController = _new_controller(13113)
+	var burned_instance: CardInstance = _add_player_promise_card(burned_hold)
+	var burner: ActorState = burned_hold.actor_by_id(GameConstants.PLAYER_ID)
+	_install_offer(burned_hold, &"npc_1", GameConstants.OfferType.HOLD_CARD)
+	burned_hold.request_accept_offer()
+	var burned_promise: PromiseState = burned_hold.run_state.active_promises[0]
+	_assert_true(burned_hold.effects.burn_instance(burned_instance, burner, burned_hold.actors), "약속 대상 카드 자발적 소각")
+	_assert_equal(burned_promise.status, GameConstants.PROMISE_BROKEN, "자발적 소각은 카드 약속 위반")
+	burned_hold.free()
+
+	var transfer_fulfilled: GameFlowController = _new_controller(13107)
+	var transfer_instance: CardInstance = _add_player_promise_card(transfer_fulfilled)
+	var transfer_offer: NegotiationOffer = _install_offer(transfer_fulfilled, &"npc_3", GameConstants.OfferType.TRANSFER_CARD)
+	transfer_fulfilled.request_accept_offer()
+	var transfer_promise: PromiseState = transfer_fulfilled.run_state.active_promises[0]
+	_assert_true(transfer_fulfilled.request_fulfill_promise(transfer_promise.promise_id), "활성 약속 패널 액션으로 카드 이전")
+	_assert_equal(transfer_promise.status, GameConstants.PROMISE_FULFILLED, "지정 NPC 이전으로 TRANSFER_CARD 이행")
+	_assert_equal(transfer_instance.owner_id, transfer_offer.promise_target_actor_id, "TRANSFER_CARD 대상 actor 정확")
+	transfer_fulfilled.free()
+
+	var transfer_broken: GameFlowController = _new_controller(13108)
+	_add_player_promise_card(transfer_broken)
+	_install_offer(transfer_broken, &"npc_3", GameConstants.OfferType.TRANSFER_CARD)
+	transfer_broken.request_accept_offer()
+	var expired_transfer: PromiseState = transfer_broken.run_state.active_promises[0]
+	transfer_broken.run_state.current_round = expired_transfer.target_round
+	transfer_broken.events.round_finished.emit(expired_transfer.target_round)
+	_assert_equal(expired_transfer.status, GameConstants.PROMISE_BROKEN, "기한 초과로 TRANSFER_CARD 위반")
+	transfer_broken.free()
+
+	var share_fulfilled: GameFlowController = _new_controller(13109)
+	var share_context: Dictionary = _prepare_share_knowledge(share_fulfilled, &"npc_2", GameConstants.PLAYER_ID)
+	_install_offer(share_fulfilled, &"npc_2", GameConstants.OfferType.SHARE_INFORMATION)
+	share_fulfilled.request_accept_offer()
+	var share_promise: PromiseState = share_fulfilled.run_state.active_promises[0]
+	share_fulfilled.information_service.share_known_clue(share_context["source"], share_context["target"], &"test_clue")
+	_assert_equal(share_promise.status, GameConstants.PROMISE_FULFILLED, "실제 단서 전달로 SHARE_INFORMATION 이행")
+	share_fulfilled.free()
+
+	var share_broken: GameFlowController = _new_controller(13110)
+	_prepare_share_knowledge(share_broken, &"npc_2", GameConstants.PLAYER_ID)
+	_install_offer(share_broken, &"npc_2", GameConstants.OfferType.SHARE_INFORMATION)
+	share_broken.request_accept_offer()
+	var expired_share: PromiseState = share_broken.run_state.active_promises[0]
+	share_broken.run_state.current_round = expired_share.target_round
+	share_broken.events.round_finished.emit(expired_share.target_round)
+	_assert_equal(expired_share.status, GameConstants.PROMISE_BROKEN, "미제공 기한 초과로 SHARE_INFORMATION 위반")
+	share_broken.free()
+
+	var mutual_fulfilled: GameFlowController = _new_controller(13111)
+	_install_offer(mutual_fulfilled, &"npc_1", GameConstants.OfferType.MUTUAL_PASS)
+	mutual_fulfilled.request_accept_offer()
+	var mutual_promise: PromiseState = mutual_fulfilled.run_state.active_promises[0]
+	mutual_fulfilled.events.actor_passed.emit(GameConstants.PLAYER_ID)
+	mutual_fulfilled.events.actor_passed.emit(&"npc_1")
+	_assert_equal(mutual_promise.status, GameConstants.PROMISE_FULFILLED, "양쪽 패스로 MUTUAL_PASS 이행")
+	mutual_fulfilled.free()
+
+	var mutual_broken: GameFlowController = _new_controller(13112)
+	_install_offer(mutual_broken, &"npc_1", GameConstants.OfferType.MUTUAL_PASS)
+	mutual_broken.request_accept_offer()
+	var broken_mutual: PromiseState = mutual_broken.run_state.active_promises[0]
+	mutual_broken.events.bid_placed.emit(GameConstants.PLAYER_ID, 200)
+	_assert_equal(broken_mutual.status, GameConstants.PROMISE_BROKEN, "한쪽 입찰로 MUTUAL_PASS 위반")
+	mutual_broken.free()
+
+func _test_promise_rewards_reputation_and_memory() -> void:
+	var fulfilled: GameFlowController = _new_controller(13201)
+	var offer: NegotiationOffer = _install_offer(fulfilled, &"npc_3", GameConstants.OfferType.SKIP_AUCTION)
+	var player: ActorState = fulfilled.actor_by_id(GameConstants.PLAYER_ID)
+	var initial_gold: int = player.gold
+	_assert_true(fulfilled.request_accept_offer(), "보상 테스트 약속 수락")
+	var promise: PromiseState = fulfilled.run_state.active_promises[0]
+	_assert_equal(player.gold, initial_gold + offer.offered_gold, "즉시 보상 한 번 지급")
+	fulfilled.events.actor_passed.emit(GameConstants.PLAYER_ID)
+	var fulfilled_gold: int = player.gold
+	_assert_equal(fulfilled_gold, initial_gold + offer.offered_gold + offer.promise_reward_gold, "이행 보상 한 번 지급")
+	fulfilled.events.actor_passed.emit(GameConstants.PLAYER_ID)
+	_assert_equal(player.gold, fulfilled_gold, "이행 보상 중복 지급 없음")
+	_assert_true(promise.immediate_reward_paid and promise.reward_paid, "보상 지급 플래그 기록")
+	_assert_equal(fulfilled.reputation_for(&"npc_3"), 1, "약속 이행 시 Reputation +1")
+	_assert_equal(fulfilled.promise_manager.memories_for(&"npc_3")[-1].event_type, GameConstants.MEMORY_PROMISE_FULFILLED, "이행 기억 추가")
+	fulfilled.free()
+
+	var broken: GameFlowController = _new_controller(13202)
+	var broken_offer: NegotiationOffer = _install_offer(broken, &"npc_3", GameConstants.OfferType.SKIP_AUCTION)
+	broken_offer.promise_penalty_hp = 1
+	var broken_player: ActorState = broken.actor_by_id(GameConstants.PLAYER_ID)
+	var before_penalty_hp: int = broken_player.hp
+	broken.request_accept_offer()
+	var before_penalty: int = broken_player.gold
+	var broken_promise: PromiseState = broken.run_state.active_promises[0]
+	broken.events.bid_placed.emit(GameConstants.PLAYER_ID, 200)
+	_assert_equal(broken_player.gold, before_penalty - broken_offer.promise_penalty_gold, "위반 골드 패널티 한 번 적용")
+	_assert_equal(broken_player.hp, before_penalty_hp - 1, "위반 HP 패널티 적용")
+	broken.events.bid_placed.emit(GameConstants.PLAYER_ID, 250)
+	_assert_equal(broken_player.gold, before_penalty - broken_offer.promise_penalty_gold, "위반 패널티 중복 적용 없음")
+	_assert_true(broken_promise.penalty_applied, "위반 패널티 적용 플래그 기록")
+	_assert_equal(broken.reputation_for(&"npc_3"), -2, "약속 위반 시 Reputation -2")
+	_assert_equal(broken.promise_manager.memories_for(&"npc_3")[-1].event_type, GameConstants.MEMORY_PLAYER_BETRAYED_NPC, "플레이어 배신 기억 추가")
+	broken.free()
+
+	var bounded: GameFlowController = _new_controller(13203)
+	_assert_equal(bounded.promise_manager.change_reputation(&"npc_1", 99), GameConstants.REPUTATION_MAX, "Reputation 상한 +3")
+	_assert_equal(bounded.promise_manager.change_reputation(&"npc_1", -99), GameConstants.REPUTATION_MIN, "Reputation 하한 -3")
+	bounded.start_new_run(13203)
+	_assert_equal(bounded.reputation_for(&"npc_1"), 0, "새 런에서 Reputation 초기화")
+	for index: int in range(7):
+		bounded.promise_manager.add_memory(
+			&"npc_1",
+			GameConstants.MEMORY_REFUSED_OFFER if index > 0 else GameConstants.MEMORY_PLAYER_BETRAYED_NPC,
+			GameConstants.PLAYER_ID,
+			&"npc_1",
+			&"",
+			1 if index > 0 else 3,
+			"기억 %d" % index
+		)
+	var memories: Array[NpcMemoryEntry] = bounded.promise_manager.memories_for(&"npc_1")
+	_assert_equal(memories.size(), GameConstants.MAX_NPC_MEMORIES, "NPC당 최근 기억 최대 5개")
+	var kept_severe: bool = false
+	for memory: NpcMemoryEntry in memories:
+		kept_severe = kept_severe or memory.event_type == GameConstants.MEMORY_PLAYER_BETRAYED_NPC
+	_assert_true(kept_severe, "중요도가 높은 오래된 기억 우선 보존")
+	bounded.free()
+
+	var high_trust: GameFlowController = _new_controller(13204)
+	var low_trust: GameFlowController = _new_controller(13204)
+	high_trust.promise_manager.change_reputation(&"npc_3", 3)
+	low_trust.promise_manager.change_reputation(&"npc_3", -3)
+	var high_offer: NegotiationOffer = high_trust.negotiation.build_offer(&"npc_3", GameConstants.OfferType.SKIP_AUCTION)
+	var low_offer: NegotiationOffer = low_trust.negotiation.build_offer(&"npc_3", GameConstants.OfferType.SKIP_AUCTION)
+	_assert_true(high_offer.offered_gold > low_offer.offered_gold, "높은 Reputation이 협상 가격 우대에 반영")
+	_assert_true(high_offer.acceptance_threshold > low_offer.acceptance_threshold, "높은 Reputation이 재제안 수락 범위에 반영")
+	high_trust.free()
+	low_trust.free()
+
+	var remembered: GameFlowController = _new_controller(13205)
+	var neutral: GameFlowController = _new_controller(13205)
+	for index: int in range(2):
+		remembered.promise_manager.add_memory(
+			&"npc_3",
+			GameConstants.MEMORY_PROMISE_FULFILLED,
+			GameConstants.PLAYER_ID,
+			&"npc_3",
+			&"",
+			2,
+			"약속 이행 기억 %d" % index
+		)
+	var remembered_score: int = int(remembered.negotiation._offer_score(remembered.actor_by_id(&"npc_3"))["score"])
+	var neutral_score: int = int(neutral.negotiation._offer_score(neutral.actor_by_id(&"npc_3"))["score"])
+	_assert_true(remembered_score > neutral_score, "긍정 기억이 이후 제안 생성 점수에 반영")
+	var remembered_offer: NegotiationOffer = remembered.negotiation.build_offer(&"npc_3", GameConstants.OfferType.SKIP_AUCTION)
+	var neutral_offer: NegotiationOffer = neutral.negotiation.build_offer(&"npc_3", GameConstants.OfferType.SKIP_AUCTION)
+	_assert_true(remembered_offer.acceptance_threshold > neutral_offer.acceptance_threshold, "기억이 counter offer 허용 범위에 반영")
+	remembered.free()
+	neutral.free()
+
+func _test_npc_betrayal_determinism_and_personality() -> void:
+	var mara_controller: GameFlowController = _new_controller(13301)
+	_install_offer(mara_controller, &"npc_1", GameConstants.OfferType.MUTUAL_PASS)
+	mara_controller.request_accept_offer()
+	var mara_promise: PromiseState = mara_controller.run_state.active_promises[0]
+	_assert_true(not mara_controller.promise_manager.decide_npc_betrayal(mara_promise, &"npc_1", 80), "마라는 기본 배신 성향이 낮음")
+	mara_controller.actor_by_id(&"npc_1").hp = 1
+	var pressured_offer: NegotiationOffer = _install_offer(mara_controller, &"npc_1", GameConstants.OfferType.MUTUAL_PASS)
+	mara_controller.request_accept_offer()
+	var pressured_promise: PromiseState = mara_controller.run_state.active_promises[-1]
+	_assert_true(mara_controller.promise_manager.decide_npc_betrayal(pressured_promise, &"npc_1", 80), "HP 1 생존 압박에서 마라 배신 가능")
+	_assert_true(pressured_offer.creates_promise, "생존 압박 약속도 정상 생성")
+	mara_controller.free()
+
+	var volt_controller: GameFlowController = _new_controller(13302)
+	volt_controller.npc_run_state_for(&"npc_3").secret_goal_id = &"volt_win_auctions"
+	_install_offer(volt_controller, &"npc_3", GameConstants.OfferType.MUTUAL_PASS)
+	volt_controller.request_accept_offer()
+	var volt_promise: PromiseState = volt_controller.run_state.active_promises[0]
+	_assert_true(volt_controller.promise_manager.decide_npc_betrayal(volt_promise, &"npc_3", 80), "볼트는 즉시 이익과 목표가 크면 배신 가능")
+	volt_controller.events.bid_placed.emit(&"npc_3", 200)
+	_assert_equal(volt_promise.status, GameConstants.PROMISE_BROKEN, "NPC 입찰로 약속 위반 판정")
+	_assert_equal(volt_controller.run_state.betrayal_history.size(), 1, "NPC 배신 이력 기록")
+	_assert_equal(volt_controller.npc_run_state_for(&"npc_3").emotion, GameConstants.Emotion.SMUG, "볼트 배신 후 SMUG 감정")
+	volt_controller.free()
+
+	var sera_controller: GameFlowController = _new_controller(13303)
+	_prepare_share_knowledge(sera_controller, &"npc_2", GameConstants.PLAYER_ID)
+	sera_controller.npc_run_state_for(&"npc_2").secret_goal_id = &"sera_gain_clues"
+	_install_offer(sera_controller, &"npc_2", GameConstants.OfferType.SHARE_INFORMATION)
+	sera_controller.request_accept_offer()
+	var sera_promise: PromiseState = sera_controller.run_state.active_promises[0]
+	_assert_true(sera_controller.promise_manager.decide_npc_betrayal(sera_promise, &"npc_2", 120), "세라는 정보 우위 이익이 크면 배신 가능")
+	sera_controller.free()
+
+	var high_rep: GameFlowController = _new_controller(13304)
+	var low_rep: GameFlowController = _new_controller(13304)
+	for item: Dictionary in [
+		{"controller": high_rep, "reputation": 3},
+		{"controller": low_rep, "reputation": -3},
+	]:
+		var candidate: GameFlowController = item["controller"] as GameFlowController
+		candidate.npc_run_state_for(&"npc_3").secret_goal_id = &"volt_bid_total"
+		candidate.promise_manager.change_reputation(&"npc_3", int(item["reputation"]))
+		_install_offer(candidate, &"npc_3", GameConstants.OfferType.MUTUAL_PASS)
+		candidate.request_accept_offer()
+	_assert_true(not high_rep.promise_manager.decide_npc_betrayal(high_rep.run_state.active_promises[0], &"npc_3", 40), "높은 Reputation이 배신 가능성 감소")
+	_assert_true(low_rep.promise_manager.decide_npc_betrayal(low_rep.run_state.active_promises[0], &"npc_3", 40), "낮은 Reputation이 배신 가능성 증가")
+	high_rep.free()
+	low_rep.free()
+
+	_assert_equal(_promise_betrayal_trace(13305), _promise_betrayal_trace(13305), "같은 Seed에서 배신 여부·점수·대상 재현")
+	var rng_first: GameFlowController = _new_controller(13306)
+	var rng_second: GameFlowController = _new_controller(13306)
+	_install_offer(rng_first, &"npc_3", GameConstants.OfferType.MUTUAL_PASS)
+	rng_first.request_accept_offer()
+	rng_first.promise_manager.decide_npc_betrayal(rng_first.run_state.active_promises[0], &"npc_3")
+	_assert_equal(rng_first.rng.randi_range(1, 100000), rng_second.rng.randi_range(1, 100000), "promise RNG가 gameplay RNG 순서를 오염시키지 않음")
+	rng_first.free()
+	rng_second.free()
+
+func _test_promise_death_cancellation_and_ui() -> void:
+	var death: GameFlowController = _new_controller(13401)
+	_install_offer(death, &"npc_1", GameConstants.OfferType.SKIP_AUCTION)
+	death.request_accept_offer()
+	var death_promise: PromiseState = death.run_state.active_promises[0]
+	death.effects.apply_damage(death.actor_by_id(&"npc_1"), 3, &"test")
+	_assert_equal(death_promise.status, GameConstants.PROMISE_CANCELLED, "약속 당사자 사망 시 취소")
+	_assert_equal(death.reputation_for(&"npc_1"), 0, "불가피한 사망 취소 시 Reputation 변화 없음")
+	_assert_true(not death_promise.penalty_applied, "사망한 actor에게 패널티 지급 없음")
+	death.free()
+
+	var packed_scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
+	var ui: Control = packed_scene.instantiate() as Control
+	root.add_child(ui)
+	var controller: GameFlowController = ui.get_node("GameFlowController") as GameFlowController
+	var negotiation_panel: NegotiationPanel = ui.get_node("%NegotiationPanel") as NegotiationPanel
+	var active_panel: ActivePromisePanel = ui.get_node("%ActivePromisePanel") as ActivePromisePanel
+	var participants: ParticipantPanel = ui.get_node("%ParticipantPanel") as ParticipantPanel
+	var judgment: JudgmentPanel = ui.get_node("%JudgmentPanel") as JudgmentPanel
+	var instance: CardInstance = _add_player_promise_card(controller)
+	var offer: NegotiationOffer = _install_offer(controller, &"npc_1", GameConstants.OfferType.KEEP_SEALED)
+	ui.refresh_ui()
+	var offer_text: String = negotiation_panel.displayed_text()
+	_assert_true(offer_text.contains("약속") and offer_text.contains("기한"), "협상 UI에 약속 유형과 기한 표시")
+	_assert_true(offer_text.contains("즉시 보상") and offer_text.contains("이행 보상") and offer_text.contains("위반 시"), "협상 UI에 보상과 위반 패널티 표시")
+	_assert_true(not offer_text.contains(String(instance.instance_id)), "일반 협상 UI에서 내부 card instance_id 숨김")
+	controller.request_accept_offer()
+	ui.refresh_ui()
+	_assert_true(active_panel.visible, "수락한 약속을 공통 활성 약속 패널에 표시")
+	_assert_true(active_panel.displayed_text().contains("봉인 유지 약속"), "활성 약속 내용 표시")
+	_assert_true(active_panel.displayed_text().contains("1라운드 남음"), "활성 약속 남은 기한 표시")
+	_assert_true(active_panel.displayed_text().contains("봉인을 열면 위반"), "활성 약속 위반 조건 표시")
+	_assert_true(not active_panel.displayed_text().contains(String(instance.instance_id)), "활성 약속 UI에서 내부 ID 숨김")
+	_assert_true(participants.combined_text().contains("평판") and participants.combined_text().contains("기억") and participants.combined_text().contains("활성 약속"), "참가자 패널에 평판·기억·활성 약속 수 표시")
+	_assert_true(not participants.combined_text().contains("severity"), "일반 UI에 memory severity 미노출")
+	_assert_true(controller.debug_information_report().contains(String(offer.promise_type)), "DEBUG에서 전체 PromiseState 타입 표시")
+	_assert_true(controller.debug_information_report().contains(String(controller.run_state.active_promises[0].promise_id)), "DEBUG에서 promise_id 표시")
+	_assert_true(controller.debug_information_report().contains("PROMISE RNG SEED"), "DEBUG에서 promise RNG 상태 표시")
+	var page: Control = ui.get_node("PageMargin/Page") as Control
+	var active_minimum: Vector2 = page.get_combined_minimum_size()
+	_assert_true(active_minimum.x <= 1244.0 and active_minimum.y <= 688.0, "활성 약속 포함 1280x720 최소 레이아웃 수용 (%s)" % active_minimum)
+	controller.events.seal_opened.emit(instance.instance_id, 1, "테스트 공개")
+	controller.run_state.current_phase = GameConstants.Phase.JUDGMENT
+	ui.refresh_ui()
+	_assert_true(judgment.summary_text().contains("약속 위반"), "약속 결과를 JUDGMENT 결과 카드에 표시")
+	_assert_true(not active_panel.visible, "해결된 약속은 활성 패널에서 제거")
+	ui.call("_start_new_run", 13402)
+	var transfer_instance: CardInstance = _add_player_promise_card(controller)
+	_install_offer(controller, &"npc_3", GameConstants.OfferType.TRANSFER_CARD)
+	controller.request_accept_offer()
+	ui.refresh_ui()
+	var fulfill_button: Button = active_panel.get_node("%FulfillButton") as Button
+	_assert_true(fulfill_button.visible and fulfill_button.text.contains("카드"), "카드 이전 약속에 직접 이행 버튼 표시")
+	fulfill_button.pressed.emit()
+	_assert_equal(transfer_instance.owner_id, &"npc_3", "활성 약속 UI 버튼으로 지정 NPC에게 카드 이전")
+	_assert_equal(controller.run_state.active_promises.size(), 0, "UI 이행 후 활성 약속 제거")
+	ui.free()
 
 func _test_player_death_is_defeat() -> void:
 	var controller: GameFlowController = _new_controller(303)
@@ -1179,6 +1604,13 @@ func _test_twenty_simulations_finish() -> void:
 		var result: Dictionary = _simulate_run(8000 + simulation_index, false)
 		_assert_true(bool(result["finished"]), "시뮬레이션 %d 종료" % (simulation_index + 1))
 		_assert_true(int(result["steps"]) < 500, "시뮬레이션 %d 무한 루프 없음" % (simulation_index + 1))
+
+func _test_twenty_promise_simulations_finish() -> void:
+	for simulation_index: int in range(20):
+		var result: Dictionary = _simulate_run_with_promises(9000 + simulation_index)
+		_assert_true(bool(result["finished"]), "약속 활성 시뮬레이션 %d 종료" % (simulation_index + 1))
+		_assert_true(int(result["steps"]) < 600, "약속 활성 시뮬레이션 %d 무한 루프 없음" % (simulation_index + 1))
+		_assert_true(int(result["promise_decisions"]) > 0, "약속 활성 시뮬레이션 %d에서 약속 응답 처리" % (simulation_index + 1))
 
 func _simulate_run(seed_value: int, capture_trace: bool) -> Dictionary:
 	var controller: GameFlowController = _new_controller(seed_value)
@@ -1232,6 +1664,116 @@ func _simulate_run(seed_value: int, capture_trace: bool) -> Dictionary:
 		"result": "%s:%s:%d" % [controller.run_state.victory, controller.run_state.result_reason, controller.run_state.current_round],
 		"finished": controller.run_state.finished,
 		"steps": steps,
+	}
+	controller.free()
+	return result
+
+func _simulate_run_with_promises(seed_value: int) -> Dictionary:
+	var controller: GameFlowController = _new_controller(seed_value)
+	var steps: int = 0
+	var promise_decisions: int = 0
+	while not controller.run_state.finished and steps < 600:
+		steps += 1
+		match controller.run_state.current_phase:
+			GameConstants.Phase.PRE_INFO:
+				var actionable: PromiseState = controller.promise_manager.actionable_player_promise()
+				while actionable != null:
+					if not controller.request_fulfill_promise(actionable.promise_id):
+						break
+					actionable = controller.promise_manager.actionable_player_promise()
+				controller.request_advance()
+			GameConstants.Phase.NEGOTIATION:
+				var offer: NegotiationOffer = controller.current_negotiation_offer()
+				if offer != null:
+					if offer.creates_promise:
+						if controller.request_accept_offer():
+							promise_decisions += 1
+						else:
+							controller.request_reject_offer()
+					else:
+						controller.request_reject_offer()
+				elif controller.can_advance_negotiation():
+					controller.request_advance()
+			GameConstants.Phase.AUCTION:
+				var player: ActorState = controller.actor_by_id(GameConstants.PLAYER_ID)
+				var required: int = controller.current_required_bid()
+				var promised_pass: bool = false
+				for promise: PromiseState in controller.run_state.active_promises:
+					if (
+						promise.target_round == controller.run_state.current_round
+						and promise.has_obligor(GameConstants.PLAYER_ID)
+						and promise.promise_type in [
+							GameConstants.PROMISE_SKIP_AUCTION,
+							GameConstants.PROMISE_MUTUAL_PASS,
+						]
+					):
+						promised_pass = true
+						break
+				if promised_pass and controller.can_player_pass():
+					controller.request_player_pass()
+				elif controller.can_player_bid() and required <= mini(player.gold, 500):
+					controller.request_player_bid()
+				elif controller.can_player_pass():
+					controller.request_player_pass()
+				else:
+					break
+			GameConstants.Phase.POST_AUCTION:
+				if not controller.can_advance_post_auction():
+					if not controller.request_keep_post_card():
+						while controller.can_open_next_seal() and not controller.run_state.finished:
+							controller.request_open_next_seal()
+						if not controller.run_state.finished:
+							controller.request_keep_post_card()
+				if not controller.run_state.finished:
+					controller.request_advance()
+			GameConstants.Phase.JUDGMENT, GameConstants.Phase.ROUND_END:
+				controller.request_advance()
+			_:
+				break
+	var result: Dictionary = {
+		"finished": controller.run_state.finished,
+		"steps": steps,
+		"promise_decisions": promise_decisions,
+		"resolved_promises": controller.run_state.resolved_promises.size(),
+	}
+	controller.free()
+	return result
+
+func _add_player_promise_card(controller: GameFlowController) -> CardInstance:
+	return controller.effects.acquire_card(
+		CardCatalog.by_id(&"broken_chalice"),
+		controller.actor_by_id(GameConstants.PLAYER_ID),
+		controller.actors
+	)
+
+func _prepare_share_knowledge(
+	controller: GameFlowController,
+	source_id: StringName,
+	target_id: StringName
+) -> Dictionary:
+	var source: KnowledgeState = _knowledge_with_clue(PackedStringArray(["information"]), 300, 100)
+	source.actor_id = source_id
+	source.card_instance_id = controller.run_state.current_lot_id
+	var target: KnowledgeState = KnowledgeState.create(target_id, controller.run_state.current_lot_id)
+	controller.knowledge_states[source_id] = source
+	controller.knowledge_states[target_id] = target
+	controller.knowledge_by_lot[controller.run_state.current_lot_id] = controller.knowledge_states
+	controller.promise_manager.update_context(controller.actors, controller.knowledge_by_lot)
+	return {"source": source, "target": target}
+
+func _promise_betrayal_trace(seed_value: int) -> Dictionary:
+	var controller: GameFlowController = _new_controller(seed_value)
+	controller.npc_run_state_for(&"npc_3").secret_goal_id = &"volt_win_auctions"
+	_install_offer(controller, &"npc_3", GameConstants.OfferType.MUTUAL_PASS)
+	controller.request_accept_offer()
+	var promise: PromiseState = controller.run_state.active_promises[0]
+	var betrayed: bool = controller.promise_manager.decide_npc_betrayal(promise, &"npc_3")
+	var result: Dictionary = {
+		"promise_type": promise.promise_type,
+		"actor": &"npc_3",
+		"betrayed": betrayed,
+		"score": int(promise.condition_value(StringName("betrayal_score_npc_3"), 0)),
+		"promise_seed": controller.promise_manager.promise_seed,
 	}
 	controller.free()
 	return result

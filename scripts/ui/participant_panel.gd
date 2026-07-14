@@ -39,6 +39,15 @@ func render(controller: GameFlowController, debug_mode: bool) -> void:
 				)
 				if not npc_state.recent_tell_text.is_empty():
 					lines.append("신호 · %s" % npc_state.recent_tell_text)
+			lines.append(
+				"평판 %+d · 활성 약속 %d · 최근 배신 %s"
+				% [
+					controller.reputation_for(actor.actor_id),
+					controller.active_promise_count_for(actor.actor_id),
+					"있음" if controller.recent_betrayal_by(actor.actor_id) else "없음",
+				]
+			)
+			lines.append("기억 · %s" % controller.recent_memory_for(actor.actor_id))
 		if actor.actor_type == GameConstants.ActorType.NPC and not dialogue.is_empty():
 			lines.append(
 				"[color=#%s]“%s”[/color]" % [UiPalette.bbcode(UiPalette.MUTED), dialogue]
