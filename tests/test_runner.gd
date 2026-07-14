@@ -44,6 +44,10 @@ func _run_all() -> void:
 	_test_promise_rewards_reputation_and_memory()
 	_test_npc_betrayal_determinism_and_personality()
 	_test_promise_death_cancellation_and_ui()
+	_test_visual_design_system_and_components()
+	_test_main_menu_settings_and_onboarding()
+	_test_violation_warning_and_visual_feedback()
+	await _test_visual_layout_resolutions_and_scales()
 	_test_player_death_is_defeat()
 	_test_round_ten_survival_is_victory()
 	_test_twenty_simulations_finish()
@@ -1575,6 +1579,282 @@ func _test_promise_death_cancellation_and_ui() -> void:
 	fulfill_button.pressed.emit()
 	_assert_equal(transfer_instance.owner_id, &"npc_3", "활성 약속 UI 버튼으로 지정 NPC에게 카드 이전")
 	_assert_equal(controller.run_state.active_promises.size(), 0, "UI 이행 후 활성 약속 제거")
+	ui.free()
+
+func _test_visual_design_system_and_components() -> void:
+	var theme: Theme = load("res://themes/last_bid_theme.tres") as Theme
+	_assert_true(theme != null, "Milestone 6 공통 Theme 로드")
+	for variation: StringName in [
+		&"ElevatedPanel",
+		&"CardPanel",
+		&"CharacterPanel",
+		&"Modal",
+		&"Toast",
+		&"StatusBadge",
+	]:
+		_assert_true(theme.has_stylebox(&"panel", variation), "%s 패널 스타일 정의" % variation)
+	for variation: StringName in [
+		&"PrimaryButton",
+		&"SecondaryButton",
+		&"DangerButton",
+		&"IconButton",
+		&"Tab",
+	]:
+		_assert_true(theme.has_stylebox(&"normal", variation), "%s 버튼 스타일 정의" % variation)
+		_assert_true(theme.has_stylebox(&"focus", variation), "%s 키보드 포커스 스타일 정의" % variation)
+	_assert_true(
+		theme.has_stylebox(&"fill", &"AuctionProgressIndicator"),
+		"ProgressIndicator 역할의 경매 진행 스타일 정의"
+	)
+	_assert_true(theme.has_stylebox(&"separator", &"Divider"), "Divider 스타일 정의")
+	_assert_true(
+		UiPalette.BACKGROUND_PRIMARY != UiPalette.PANEL_PRIMARY
+		and UiPalette.GOLD_PRIMARY != UiPalette.TEXT_SECONDARY
+		and UiPalette.DANGER_PRIMARY != UiPalette.SUCCESS_PRIMARY,
+		"배경·패널·강조·위험·성공 토큰이 의미별로 분리"
+	)
+	_assert_true(
+		UiPalette.SPACE_1 < UiPalette.SPACE_3
+		and UiPalette.SPACE_3 < UiPalette.SPACE_6
+		and UiPalette.FONT_CAPTION < UiPalette.FONT_DISPLAY,
+		"간격과 타이포그래피 스케일 정의"
+	)
+	_assert_true(TooltipTerms.has_all_required(), "필수 14개 게임 용어 Tooltip 정의")
+	for term: String in TooltipTerms.REQUIRED_TERMS:
+		_assert_true(TooltipTerms.text(term).length() >= 15, "%s Tooltip이 행동 판단 정보를 제공" % term)
+
+	var component_scenes: PackedStringArray = [
+		"res://scenes/ui/participant_card.tscn",
+		"res://scenes/ui/seal_indicator.tscn",
+		"res://scenes/ui/main_menu.tscn",
+		"res://scenes/ui/settings_modal.tscn",
+		"res://scenes/ui/tutorial_overlay.tscn",
+		"res://scenes/ui/toast_layer.tscn",
+		"res://scenes/ui/confirmation_modal.tscn",
+	]
+	for scene_path: String in component_scenes:
+		_assert_true(load(scene_path) is PackedScene, "%s 공통 UI 컴포넌트 로드" % scene_path)
+
+	var seal_scene: PackedScene = load("res://scenes/ui/seal_indicator.tscn") as PackedScene
+	var seals: SealIndicator = seal_scene.instantiate() as SealIndicator
+	root.add_child(seals)
+	seals.render(0, false)
+	_assert_true(
+		seals.displayed_state().contains("1:잠김") and seals.displayed_state().contains("3:잠김"),
+		"미개봉 카드가 세 개의 독립 봉인 상태 표시"
+	)
+	seals.render(1, false)
+	_assert_true(
+		seals.displayed_state().contains("1:열림") and seals.displayed_state().contains("2:잠김"),
+		"부분 개봉 상태가 열린 봉인과 잠긴 봉인을 구분"
+	)
+	seals.render(3, true)
+	_assert_true(not seals.displayed_state().contains("잠김"), "완전 공개 상태에서 세 봉인 모두 열림")
+	seals.free()
+
+func _test_main_menu_settings_and_onboarding() -> void:
+	var packed_scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
+	var ui: Control = packed_scene.instantiate() as Control
+	root.add_child(ui)
+	var main_menu: MainMenu = ui.get_node("%MainMenu") as MainMenu
+	var page_margin: MarginContainer = ui.get_node("PageMargin") as MarginContainer
+	var settings: SettingsModal = ui.get_node("%SettingsModal") as SettingsModal
+	var tutorial: TutorialOverlay = ui.get_node("%TutorialOverlay") as TutorialOverlay
+	var participant_panel: ParticipantPanel = ui.get_node("%ParticipantPanel") as ParticipantPanel
+	var participant_list: VBoxContainer = participant_panel.get_node("%ParticipantList") as VBoxContainer
+	_assert_true(main_menu.visible and not page_margin.visible, "실행 시 게임 셸보다 메인 메뉴를 먼저 표시")
+	main_menu.set_last_seed(24680)
+	_assert_equal(main_menu.seed_value(), 24680, "메인 메뉴가 최근 Seed를 재사용")
+	(main_menu.get_node("%SeedInput") as LineEdit).text = "not-a-seed"
+	_assert_equal(main_menu.seed_value(), GameConstants.DEFAULT_SEED, "잘못된 Seed 입력은 기본 Seed로 안전하게 대체")
+	(main_menu.get_node("%SettingsButton") as Button).pressed.emit()
+	_assert_true(settings.visible, "메인 메뉴에서 설정 모달 열기")
+	_assert_equal((settings.get_node("%ResolutionOption") as OptionButton).item_count, 4, "지원 해상도 4종 제공")
+	_assert_equal((settings.get_node("%UiScaleOption") as OptionButton).item_count, 3, "UI 배율 80·100·120 제공")
+	_assert_equal((settings.get_node("%TextScaleOption") as OptionButton).item_count, 3, "텍스트 크기 3단계 제공")
+	var settings_values: Dictionary = settings.displayed_values()
+	_assert_true(
+		settings_values.has("fullscreen")
+		and settings_values.has("reduce_motion")
+		and settings_values.has("tutorial")
+		and settings_values.has("debug"),
+		"설정에 화면·모션·튜토리얼·디버그 접근성 항목 제공"
+	)
+	(settings.get_node("%CloseButton") as Button).pressed.emit()
+	(main_menu.get_node("%SeedInput") as LineEdit).text = "24680"
+	(main_menu.get_node("%NewGameButton") as Button).pressed.emit()
+	_assert_true(not main_menu.visible and page_margin.visible, "새 게임 선택 시 플레이 셸 진입")
+	_assert_true(tutorial.visible and tutorial.current_step() == &"pre_info", "첫 플레이 PRE_INFO Coach Mark 표시")
+	_assert_equal(participant_list.get_child_count(), 4, "플레이어 1명과 NPC 3명을 독립 참가자 카드로 표시")
+	for child: Node in participant_list.get_children():
+		var participant_card: ParticipantCard = child as ParticipantCard
+		_assert_true(participant_card != null, "참가자 목록이 재사용 ParticipantCard로 구성")
+		_assert_true(
+			participant_card.get_node("%PortraitTexture") is TextureRect
+			and participant_card.get_node("%Silhouette") is SilhouettePortrait,
+			"참가자 카드에 교체 가능한 초상화 슬롯과 실루엣 제공"
+		)
+		_assert_true(not (participant_card.get_node("%DetailsPanel") as PanelContainer).visible, "세부 관계 정보는 기본 접힘")
+	(participant_list.get_child(0).get_node("%DetailsButton") as Button).pressed.emit()
+	_assert_true(
+		(participant_list.get_child(0).get_node("%DetailsPanel") as PanelContainer).visible,
+		"참가자 세부 정보가 필요할 때 펼쳐짐"
+	)
+	(tutorial.get_node("%DismissButton") as Button).pressed.emit()
+	_assert_true(not tutorial.visible and tutorial.is_step_shown(&"pre_info"), "Coach Mark를 개별 단계 단위로 닫기")
+	ui.free()
+
+	var tutorial_scene: PackedScene = load("res://scenes/ui/tutorial_overlay.tscn") as PackedScene
+	var standalone_tutorial: TutorialOverlay = tutorial_scene.instantiate() as TutorialOverlay
+	root.add_child(standalone_tutorial)
+	standalone_tutorial.configure(true, true)
+	_assert_true(
+		standalone_tutorial.show_step(&"auction", "경매", "다음 입찰가와 현재 차례를 확인하세요."),
+		"튜토리얼 단계를 명시적으로 재생"
+	)
+	_assert_true(
+		not standalone_tutorial.show_step(&"post_auction", "낙찰 후", "봉인을 확인하세요."),
+		"여러 Coach Mark를 동시에 띄우지 않음"
+	)
+	(standalone_tutorial.get_node("%DisableButton") as Button).pressed.emit()
+	_assert_true(
+		not standalone_tutorial.visible
+		and not standalone_tutorial.show_step(&"post_auction", "낙찰 후", "봉인을 확인하세요."),
+		"다시 보지 않기 선택 시 이후 Coach Mark 비활성"
+	)
+	standalone_tutorial.configure(true, true)
+	_assert_true(
+		standalone_tutorial.show_step(&"post_auction", "낙찰 후", "봉인을 확인하세요."),
+		"설정의 튜토리얼 다시 보기용 단계 초기화 지원"
+	)
+	standalone_tutorial.free()
+
+func _test_violation_warning_and_visual_feedback() -> void:
+	var controller: GameFlowController = _new_controller(13601)
+	_install_offer(controller, &"npc_1", GameConstants.OfferType.SKIP_AUCTION)
+	_assert_true(controller.request_accept_offer(), "경고 테스트용 경매 패스 약속 수락")
+	var promise: PromiseState = controller.run_state.active_promises[0]
+	var warning: String = controller.promise_violation_warning(&"bid")
+	_assert_true(
+		warning.contains("마라") and warning.contains("위반"),
+		"위험 행동 전에 상대와 위반 약속을 설명하는 경고 생성"
+	)
+	_assert_equal(promise.status, GameConstants.PROMISE_ACTIVE, "경고 조회만으로 약속 상태를 변경하지 않음")
+	controller.free()
+
+	var packed_scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
+	var ui: Control = packed_scene.instantiate() as Control
+	root.add_child(ui)
+	var ui_controller: GameFlowController = ui.get_node("GameFlowController") as GameFlowController
+	var confirmation: ConfirmationModal = ui.get_node("%ConfirmationModal") as ConfirmationModal
+	_install_offer(ui_controller, &"npc_1", GameConstants.OfferType.SKIP_AUCTION)
+	ui_controller.request_accept_offer()
+	ui_controller.run_state.current_phase = GameConstants.Phase.AUCTION
+	ui_controller.auction.start_auction(ui_controller.actors)
+	ui.refresh_ui()
+	var bid_before: int = ui_controller.run_state.current_bid
+	ui.call("_on_bid_pressed")
+	_assert_true(
+		confirmation.visible and confirmation.pending_action() == &"bid",
+		"약속 위반 가능 입찰은 확인 모달로 한 번 경고"
+	)
+	_assert_equal(ui_controller.run_state.current_bid, bid_before, "확인 전에는 위험 행동을 실행하지 않음")
+	(confirmation.get_node("%ConfirmButton") as Button).pressed.emit()
+	_assert_true(ui_controller.run_state.current_bid > bid_before, "경고 후 강행을 선택하면 입찰 실행")
+	_assert_equal(
+		ui_controller.run_state.resolved_promises[0].status,
+		GameConstants.PROMISE_BROKEN,
+		"강행한 입찰의 기존 약속 위반 규칙 유지"
+	)
+
+	var toast: ToastLayer = ui.get_node("%ToastLayer") as ToastLayer
+	toast.show_message("카드 완전 공개", &"success", true)
+	_assert_equal(toast.last_message, "카드 완전 공개", "Toast가 최근 핵심 피드백 저장")
+	_assert_true((toast.get_node("%ToastPanel") as PanelContainer).visible, "Reduce Motion에서도 즉시 읽을 수 있는 Toast 표시")
+	var preferences: UiPreferences = UiPreferences.new()
+	preferences.reduce_motion = true
+	preferences.ui_scale = 1.2
+	preferences.text_scale = 1.1
+	preferences.apply(ui)
+	_assert_true(
+		absf(ui.get_window().content_scale_factor - 1.2) < 0.001,
+		"UI 배율 120%를 실제 Window 콘텐츠 배율에 적용"
+	)
+	_assert_equal(ui.theme.default_font_size, roundi(UiPalette.FONT_BODY * 1.1), "텍스트 크기 설정을 Theme에 적용")
+	ui.get_window().content_scale_factor = 1.0
+	ui.free()
+
+func _test_visual_layout_resolutions_and_scales() -> void:
+	var packed_scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
+	for resolution: Vector2i in UiPreferences.SUPPORTED_RESOLUTIONS:
+		var viewport: SubViewport = SubViewport.new()
+		viewport.size = resolution
+		root.add_child(viewport)
+		var ui: Control = packed_scene.instantiate() as Control
+		viewport.add_child(ui)
+		await process_frame
+		_assert_equal(ui.size, Vector2(resolution), "%dx%d에서 루트 UI 확장" % [resolution.x, resolution.y])
+		viewport.free()
+		await process_frame
+
+	var ui: Control = packed_scene.instantiate() as Control
+	root.add_child(ui)
+	var controller: GameFlowController = ui.get_node("GameFlowController") as GameFlowController
+	var page_margin: MarginContainer = ui.get_node("PageMargin") as MarginContainer
+	var page: Control = ui.get_node("PageMargin/Page") as Control
+	page_margin.visible = true
+	(ui.get_node("%MainMenu") as MainMenu).visible = false
+	await process_frame
+	var phases: PackedInt32Array = [
+		GameConstants.Phase.PRE_INFO,
+		GameConstants.Phase.NEGOTIATION,
+		GameConstants.Phase.AUCTION,
+		GameConstants.Phase.POST_AUCTION,
+		GameConstants.Phase.JUDGMENT,
+		GameConstants.Phase.ROUND_END,
+		GameConstants.Phase.RUN_RESULT,
+	]
+	for phase: int in phases:
+		controller.run_state.current_phase = phase
+		ui.refresh_ui()
+		await process_frame
+		var phase_minimum: Vector2 = page.get_combined_minimum_size()
+		for scale: float in UiPreferences.SUPPORTED_SCALES:
+			var logical_size: Vector2 = Vector2(1280, 720) / scale
+			var available: Vector2 = logical_size - Vector2(28, 24)
+			_assert_true(
+				phase_minimum.x <= available.x + 1.0 and phase_minimum.y <= available.y + 1.0,
+				"%s 화면이 1280x720 · UI %d%%에서 수용 (%s)"
+				% [UiPalette.phase_label(phase), roundi(scale * 100.0), phase_minimum]
+			)
+
+	controller.run_state.current_phase = GameConstants.Phase.PRE_INFO
+	controller.run_state.active_promises.clear()
+	for index: int in range(3):
+		var promise: PromiseState = PromiseState.new()
+		promise.promise_id = StringName("layout_promise_%d" % index)
+		promise.issuer_id = StringName("npc_%d" % (index + 1))
+		promise.receiver_id = GameConstants.PLAYER_ID
+		promise.promise_type = [
+			GameConstants.PROMISE_SKIP_AUCTION,
+			GameConstants.PROMISE_MUTUAL_PASS,
+			GameConstants.PROMISE_KEEP_CARD_SEALED,
+		][index]
+		promise.obligor_ids = [GameConstants.PLAYER_ID]
+		promise.target_display_name = "테스트 약속 %d" % (index + 1)
+		promise.target_round = controller.run_state.current_round + index
+		controller.run_state.active_promises.append(promise)
+	ui.refresh_ui()
+	await process_frame
+	var active_panel: ActivePromisePanel = ui.get_node("%ActivePromisePanel") as ActivePromisePanel
+	var promise_minimum: Vector2 = page.get_combined_minimum_size()
+	var strict_available: Vector2 = Vector2(1280, 720) / 1.2 - Vector2(28, 24)
+	_assert_true(active_panel.visible and active_panel.displayed_text().contains("테스트 약속 3"), "활성 약속 3개를 스크롤 가능한 공통 영역에 표시")
+	_assert_true(
+		promise_minimum.x <= strict_available.x + 1.0 and promise_minimum.y <= strict_available.y + 1.0,
+		"활성 약속 3개도 1280x720 · UI 120%%에서 수용 (%s)" % promise_minimum
+	)
+	_assert_true(not (ui.get_node("%ReactionPanel") as ReactionPanel).visible, "정보 밀집 시 보조 NPC 반응을 접어 핵심 약속 우선")
 	ui.free()
 
 func _test_player_death_is_defeat() -> void:
